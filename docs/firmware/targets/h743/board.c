@@ -196,6 +196,11 @@ void board_panic(const char *what)
 void SysTick_Handler(void)
 {
     HAL_IncTick();
+    board_systick_hook();
+}
+
+__attribute__((weak)) void board_systick_hook(void)
+{
 }
 
 void HardFault_Handler(void)

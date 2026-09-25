@@ -80,6 +80,22 @@ test('static IDE runs C source on virtual HAL and search opens real source match
     assert.equal(await evaluate(`document.querySelector('.editor-tab.active')?.title`), 'firmware/projects/button-led/main.c');
     await evaluate(`document.querySelector('.editor .pane-toggle').click()`);
     assert.equal(await evaluate(`document.querySelector('.bottom .pane-toggle')?.textContent`), 'Float');
+    await evaluate(`(() => { const p=document.querySelector('#project'); p.value='freertos'; p.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
+    await waitFor(`document.querySelector('#preview-log')?.textContent.includes('[LED task] heartbeat') && document.querySelector('#preview-log')?.textContent.includes('[monitor task] tick')`, 10000);
+    await waitFor(`document.querySelector('#preview-rtos')?.hidden === false && [...document.querySelectorAll('.rtos-task')].length === 2`);
+    assert.equal(await evaluate(`[...document.querySelectorAll('.rtos-task')].every(row => ['LED','Monitor'].includes(row.dataset.taskName))`), true);
+    await evaluate(`document.querySelector('#btn-clock').click()`);
+    await waitFor(`document.querySelector('#clock-diagram .clock-node.primary')?.textContent.includes('400.00 MHz')`);
+    assert.equal(await evaluate(`document.querySelector('.clock-pane').classList.contains('floating')`), true);
+    assert.equal(await evaluate(`document.querySelector('#clock-diagram').textContent.includes('HCLK 200.00 MHz')`), true);
+    assert.equal(await evaluate(`document.querySelector('#clock-diagram').textContent.includes('PCLK 100.00 MHz')`), true);
+    await evaluate(`document.querySelector('#btn-clock').click()`);
+    assert.equal(await evaluate(`document.querySelector('.clock-pane').hidden`), true);
+    if (process.env.FORGE_TEST_WASM_BUILD === '1') {
+      await evaluate(`document.querySelector('#btn-build').click()`);
+      await waitFor(`document.querySelector('#term-build')?.textContent.includes('Build succeeded') || document.querySelector('#term-build')?.textContent.includes('Build failed')`, 180000);
+      assert.equal(await evaluate(`document.querySelector('#term-build').textContent.includes('Build succeeded')`), true, await evaluate(`document.querySelector('#term-build').textContent`));
+    }
     assert.deepEqual(errors, []);
   } finally {
     ws?.close(); proc.kill(); server.close();

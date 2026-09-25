@@ -35,6 +35,11 @@ const INCLUDES = [
   'firmware/third_party/fatfs', ENGINE.slice(0, -1),
 ].map((path) => `-I/src/${path}`);
 const CPU = ['-mcpu=cortex-m4','-mthumb','-mfpu=fpv4-sp-d16','-mfloat-abi=softfp'];
+const FREERTOS_SOURCES = [
+  'firmware/third_party/freertos/tasks.c', 'firmware/third_party/freertos/list.c',
+  'firmware/third_party/freertos/queue.c', 'firmware/third_party/freertos/portable/MemMang/heap_4.c',
+  'firmware/third_party/freertos/portable/GCC/ARM_CM7/r0p1/port.c',
+];
 let compilerSessionPromise;
 
 function binFromElf(elf) {
@@ -89,6 +94,11 @@ function symbolFromElf(elf, target) {
 export async function browserH743Build({ project = 'doom', projectConfig, files, source, onLog, toolchainURL = TOOLCHAIN }) {
   if (!/^[a-z0-9-]+$/.test(project)) throw new Error(`Invalid example ID: ${project}`);
   const doom = project === 'doom';
+  const freertos = project === 'freertos';
+  const cpu = freertos ? ['-mcpu=cortex-m7','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard'] : CPU;
+  const includes = freertos ? [...INCLUDES,
+    '-I/src/firmware/projects/freertos', '-I/src/firmware/third_party/freertos/include',
+    '-I/src/firmware/third_party/freertos/portable/GCC/ARM_CM7/r0p1'] : INCLUDES;
   const log = (message) => onLog?.(message);
   compilerSessionPromise ||= import(toolchainURL).then((toolchain) => toolchain.createSession());
   const session = await compilerSessionPromise;
@@ -97,7 +107,7 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
   const paths = [...new Set([
     ...BOARD_SOURCES,
     ...(doom ? [...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')), ...DOOM_SOURCES]
-      : [`firmware/projects/${project}/main.c`, ...(projectConfig?.sources || [])]),
+      : [`firmware/projects/${project}/main.c`, ...(freertos ? FREERTOS_SOURCES : []), ...(projectConfig?.sources || [])]),
   ])];
   log(`Preparing ${paths.length} C/assembly units and current editor buffers…`);
   await Promise.all([...new Set([...paths, ...headers])].map(async (path) => {
@@ -110,8 +120,8 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i], engine = path.startsWith(ENGINE);
     const object = `/out/${path.replaceAll('/', '_').replace(/\.(c|s)$/, '')}.o`;
-    const args = ['clang', ...CPU, '--sysroot=/usr', '-O2', ...COMMON_DEFINES,
-      ...INCLUDES, '-ffunction-sections', '-fdata-sections', '-fno-common',
+    const args = ['clang', ...cpu, '--sysroot=/usr', '-O2', ...COMMON_DEFINES,
+      ...includes, '-ffunction-sections', '-fdata-sections', '-fno-common',
       ...(engine ? [...DOOM_DEFINES, '-std=gnu99', '-w'] : [...(doom ? DOOM_DEFINES : []), '-std=gnu11', '-Wall']),
       ...(path.endsWith('.s') ? ['-x','assembler-with-cpp'] : []), '-c', `/src/${path}`, '-o', object];
     const code = await session.clang(args, { stdout: output, stderr: output });
@@ -120,7 +130,7 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
     if ((i + 1) % 10 === 0 || i + 1 === paths.length) log(`Compiled ${i + 1}/${paths.length} units`);
   }
   const linkLog = [];
-  const link = await session.clang(['clang', ...CPU, '--sysroot=/usr', '-nostartfiles',
+  const link = await session.clang(['clang', ...cpu, '--sysroot=/usr', '-nostartfiles',
     '-T/src/firmware/targets/h743/h743.ld', '-Wl,--gc-sections', '-Wl,-Map=/out/firmware.map',
     '-Wl,--print-memory-usage', ...objects, '-lm', '-o', '/out/firmware.elf'], {
     stdout: (b) => { if (b) linkLog.push(new TextDecoder().decode(b)); },

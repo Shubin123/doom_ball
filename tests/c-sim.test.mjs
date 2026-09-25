@@ -10,7 +10,7 @@ async function sourceFor(project) {
 function runC(source, { target = 'h743', speed = 1, until, onOutput, timeout = 3000 } = {}) {
   return new Promise((resolve, reject) => {
     let sim;
-    const state = { output: '', led: false, ledUpdates: 0, lcd: [], hostTx: '', statuses: [] };
+    const state = { output: '', led: false, ledUpdates: 0, lcd: [], hostTx: '', statuses: [], rtos: [] };
     const timer = setTimeout(() => { sim.stop(); reject(new Error('C simulation timed out')); }, timeout);
     const finish = () => { clearTimeout(timer); resolve({ sim, state }); };
     sim = new CBoardSimulation(source, {
@@ -19,6 +19,7 @@ function runC(source, { target = 'h743', speed = 1, until, onOutput, timeout = 3
       onHostTx: (text) => { state.hostTx += text; },
       onLed: (value) => { state.led = value; state.ledUpdates++; },
       onLcd: (value) => { state.lcd.push(value); if (until?.(state, sim)) { sim.stop(); finish(); } },
+      onRtos: (event) => { state.rtos.push(event); if (until?.(state, sim)) { sim.stop(); finish(); } },
       onStatus: (text) => { state.statuses.push(text); if (text.startsWith('Simulation stopped')) { clearTimeout(timer); reject(new Error(text)); } },
     });
     void sim.start().then(finish, (error) => { clearTimeout(timer); reject(error); });
@@ -35,6 +36,19 @@ test('Blinky executes C printf, HAL_GPIO_TogglePin and the edited HAL_Delay inte
   assert.match(state.output, /pulse 0\r\npulse 1/);
   assert.equal(state.led, false, 'two executed GPIO toggles return the LED to its initial state');
   assert.ok(elapsed >= 90 && elapsed < 1500, `edited 125 ms delay elapsed in ${elapsed.toFixed(0)} ms`);
+});
+
+test('FreeRTOS example creates and runs both C task functions in the virtual board model', async () => {
+  const code = await sourceFor('freertos');
+  const { state } = await runC(code, { speed: 8, timeout: 2500,
+    until: (s) => s.output.includes('[monitor task] tick') && s.output.includes('[LED task] heartbeat 2') && s.rtos.some((event) => event.type === 'state' && event.state === 'Blocked'),
+  });
+  assert.match(state.output, /FreeRTOS 11\.1\.0: starting LED and monitor tasks/);
+  assert.match(state.output, /\[LED task\] heartbeat 1/);
+  assert.match(state.output, /\[monitor task\] tick/);
+  assert.ok(state.ledUpdates >= 2);
+  assert.deepEqual(state.rtos.filter((event) => event.type === 'create').map((event) => event.task.name), ['LED', 'Monitor']);
+  assert.ok(state.rtos.some((event) => event.type === 'state' && event.state === 'Blocked'));
 });
 
 test('main calls user-defined C functions instead of reproducing their effects in preview code', async () => {

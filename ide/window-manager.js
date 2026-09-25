@@ -7,6 +7,7 @@ function initWindowManager() {
     ['editor', document.querySelector('.editor'), '.editor-titlebar'],
     ['side', document.querySelector('.side'), '.panel-head'],
     ['bottom', document.querySelector('.bottom'), '.bottom-tabs'],
+    ['clock', document.querySelector('.clock-pane'), '.panel-head'],
   ];
   const key = 'stm32-forge-pane-layout-v1';
   let saved = {};
@@ -25,11 +26,12 @@ function initWindowManager() {
   function syncGrid() {
     const floating = (id) => panes.get(id)?.classList.contains('floating');
     const left = !floating('files'), center = !floating('editor'), right = !floating('side');
-    const columns = [left && '250px', center && 'minmax(280px, 1fr)', right && '380px'].filter(Boolean);
+    const clock = !panes.get('clock')?.hidden && !floating('clock');
+    const columns = [left && '250px', center && 'minmax(280px, 1fr)', right && '380px', clock && 'minmax(260px, 0.8fr)'].filter(Boolean);
     main.style.gridTemplateColumns = columns.length ? columns.join(' ') : '1fr';
     let col = 1;
     for (const [id, pane] of panes) {
-      if (id === 'bottom' || pane.classList.contains('floating')) continue;
+      if (id === 'bottom' || pane.hidden || pane.classList.contains('floating')) continue;
       pane.style.gridColumn = String(col++);
     }
     app.classList.toggle('bottom-floating', !!floating('bottom'));
@@ -110,9 +112,25 @@ function initWindowManager() {
       window.addEventListener('pointerup', end);
       window.addEventListener('pointercancel', end);
     });
-    if (saved[id]) floatPane(id, pane, header, button);
+    if (saved[id] && !pane.hidden) floatPane(id, pane, header, button);
   }
   syncGrid();
+  const clockPane = panes.get('clock');
+  const clockButton = document.getElementById('btn-clock');
+  clockButton?.addEventListener('click', () => {
+    if (clockPane.hidden) {
+      clockPane.hidden = false;
+      floatPane('clock', clockPane, clockPane.querySelector('.panel-head'), clockPane.querySelector('.pane-toggle'));
+      clockButton.setAttribute('aria-pressed', 'true');
+      document.dispatchEvent(new CustomEvent('clockpanechange', { detail: { open: true } }));
+    } else {
+      dockPane('clock', clockPane, clockPane.querySelector('.pane-toggle'));
+      clockPane.hidden = true;
+      clockButton.setAttribute('aria-pressed', 'false');
+      syncGrid();
+      document.dispatchEvent(new CustomEvent('clockpanechange', { detail: { open: false } }));
+    }
+  });
   window.addEventListener('resize', () => {
     for (const pane of panes.values()) if (pane.classList.contains('floating')) {
       const r = pane.getBoundingClientRect();
@@ -122,4 +140,14 @@ function initWindowManager() {
     persist();
   });
   document.addEventListener('pointerup', persist);
+  return {
+    refresh: syncGrid,
+    close: (id) => {
+      const pane = panes.get(id), button = pane?.querySelector('.pane-toggle');
+      if (!pane) return;
+      if (pane.classList.contains('floating')) dockPane(id, pane, button);
+      pane.hidden = true; syncGrid(); persist();
+      if (id === 'clock') document.getElementById('btn-clock')?.setAttribute('aria-pressed', 'false');
+    },
+  };
 }

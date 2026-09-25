@@ -35,7 +35,12 @@ has its own `firmware/projects/<example>/main.c` entry point and can be built an
 flashed independently. The catalog at `firmware/projects/catalog.json` supplies
 the menu description, category, board support, and editor entry file. Included
 examples cover DOOM, LED blinking, button input, UART echo, timer-driven status,
-and an ILI9341 color cycle.
+an ILI9341 color cycle, and the FreeRTOS LED/serial task example. FreeRTOS uses
+the upstream 11.1.0 kernel and GCC Cortex-M7 r0p1 port on the H743; its virtual
+board preview executes the task C functions and shows their delays and states.
+The **Clock diagram** button opens a movable clock-tree pane calculated from
+the selected board's `board.c`; all IDE panes can be floated, moved, resized,
+and docked back into the workspace.
 
 **Rebuild and flash H743 changes**: edit firmware or engine sources in the IDE,
 press **Build**, then select the resulting image in **Flash…**. The build uses

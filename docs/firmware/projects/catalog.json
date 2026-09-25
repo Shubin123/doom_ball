@@ -3,7 +3,8 @@
     { "id": "games", "name": "Games" },
     { "id": "basics", "name": "Getting started" },
     { "id": "io", "name": "Inputs and serial" },
-    { "id": "display", "name": "Display" }
+    { "id": "display", "name": "Display" },
+    { "id": "rtos", "name": "Real-time OS" }
   ],
   "projects": [
     {
@@ -30,6 +31,16 @@
       "id": "timer-blink", "name": "Timer and heartbeat", "group": "basics",
       "description": "Use the board millisecond timer without blocking; pulse PC13 and report uptime once per second.",
       "entry": "firmware/projects/timer-blink/main.c", "targets": ["h743"]
+    },
+    {
+      "id": "freertos", "name": "FreeRTOS tasks", "group": "rtos",
+      "description": "Run preemptive LED and serial-monitor tasks with upstream FreeRTOS 11.1.0 on the H743.",
+      "entry": "firmware/projects/freertos/main.c", "targets": ["h743"],
+      "sources": [
+        "firmware/third_party/freertos/tasks.c", "firmware/third_party/freertos/list.c",
+        "firmware/third_party/freertos/queue.c", "firmware/third_party/freertos/portable/MemMang/heap_4.c",
+        "firmware/third_party/freertos/portable/GCC/ARM_CM7/r0p1/port.c"
+      ]
     },
     {
       "id": "lcd-colors", "name": "LCD color cycle", "group": "display",

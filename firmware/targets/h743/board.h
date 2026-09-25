@@ -22,6 +22,8 @@ uint32_t buttons_read(void);       /* bit n set = button on pin n pressed */
 void led_toggle(void);
 uint32_t millis(void);
 void delay_ms(uint32_t ms);
+/* Optional application hook called on each HAL millisecond interrupt. */
+void board_systick_hook(void);
 
 void lcd_init(void);
 void lcd_fill(uint16_t color);

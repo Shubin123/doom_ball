@@ -118,6 +118,7 @@ async function loadProjectCatalog() {
   const fallback = [
     { id: 'doom', name: 'DOOM', group: 'games', description: 'Playable DOOM on the H743.', entry: 'firmware/targets/h743/dg_stm32.c', targets: ['h743'], emulator: true },
     { id: 'blinky', name: 'Blinky', group: 'basics', description: 'Blink PC13 and report over USART1.', entry: 'firmware/projects/blinky/main.c', targets: ['h743', 'bluepill'] },
+    { id: 'freertos', name: 'FreeRTOS tasks', group: 'rtos', description: 'Run preemptive LED and serial-monitor tasks with FreeRTOS on the H743.', entry: 'firmware/projects/freertos/main.c', targets: ['h743'], sources: [] },
   ];
   try {
     const response = await fetch('firmware/projects/catalog.json', { cache: 'no-store' });
@@ -127,7 +128,7 @@ async function loadProjectCatalog() {
     groups = catalog.groups;
   } catch {
     state.projects = fallback;
-    groups = [{ id: 'games', name: 'Games' }, { id: 'basics', name: 'Getting started' }];
+    groups = [{ id: 'games', name: 'Games' }, { id: 'basics', name: 'Getting started' }, { id: 'rtos', name: 'Real-time OS' }];
   }
   state.projectGroups = groups;
   const select = $('project');
@@ -538,6 +539,7 @@ const sim = new DoomSim($('screen'), {
   },
 });
 const examplePreview = new ExamplePreview($('example-view'));
+const clockDiagram = new ClockDiagram($('clock-diagram'));
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -834,8 +836,14 @@ function onSelection() {
   $('example-targets').textContent = project?.targets.map((target) => target.toUpperCase()).join(' · ') || '';
   if (state.files.includes(main)) openFile(main);
 }
-$('target').addEventListener('change', onSelection);
+$('target').addEventListener('change', () => {
+  onSelection();
+  if (!$('.clock-pane').hidden) void clockDiagram.show({ target: $('target').value, readSource: sourceForSimulation });
+});
 $('project').addEventListener('change', onSelection);
+document.addEventListener('clockpanechange', (event) => {
+  if (event.detail?.open) void clockDiagram.show({ target: $('target').value, readSource: sourceForSimulation });
+});
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAll(); }

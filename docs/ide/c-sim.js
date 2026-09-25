@@ -4,7 +4,7 @@
 const TYPE_WORDS = new Set([
   'void','char','short','int','long','float','double','signed','unsigned','const','volatile','static',
   'uint8_t','uint16_t','uint32_t','uint64_t','int8_t','int16_t','int32_t','int64_t','size_t',
-  'GPIO_PinState','HAL_StatusTypeDef',
+  'GPIO_PinState','HAL_StatusTypeDef','TaskHandle_t','TickType_t','BaseType_t','UBaseType_t',
 ]);
 const OPERATORS = ['++','--','+=','-=','*=','/=','%=','==','!=','<=','>=','&&','||','<<','>>'];
 
@@ -212,7 +212,7 @@ class CParser {
 }
 
 class Scope {
-  constructor(parent = null) { this.parent = parent; this.values = new Map(); }
+  constructor(parent = null) { this.parent = parent; this.values = new Map(); this.task = parent?.task || null; }
   has(name) { return this.values.has(name) || Boolean(this.parent?.has(name)); }
   get(name) { return this.values.has(name) ? this.values.get(name) : this.parent?.get(name); }
   set(name, value) { if (this.values.has(name)) this.values.set(name, value); else if (this.parent?.has(name)) this.parent.set(name, value); else this.values.set(name, value); return value; }
@@ -223,14 +223,15 @@ const pointer = (scope, name) => ({ __pointer: true, scope, name });
 const truth = (value) => Boolean(value);
 
 export class CBoardSimulation {
-  constructor(source, { target = 'h743', definitions = [], onOutput = () => {}, onLed = () => {}, onLcd = () => {}, onStatus = () => {}, onHostTx = () => {}, speed = 1 } = {}) {
-    this.source = source; this.target = target; this.definitions = definitions; this.cb = { onOutput, onLed, onLcd, onStatus, onHostTx };
+  constructor(source, { target = 'h743', definitions = [], onOutput = () => {}, onLed = () => {}, onLcd = () => {}, onStatus = () => {}, onHostTx = () => {}, onRtos = () => {}, speed = 1 } = {}) {
+    this.source = source; this.target = target; this.definitions = definitions; this.cb = { onOutput, onLed, onLcd, onStatus, onHostTx, onRtos };
     this.speed = speed; this.running = false; this.paused = false; this.led = false; this.lcdColor = 0;
     this.buttonDown = false; this.input = []; this.waitingRx = []; this.delayWaiters = new Map(); this.epoch = 0; this.tickEpoch = 0; this.steps = 0;
+    this.rtosTasks = []; this.schedulerStarted = false; this.schedulerWaiter = null;
     this.macros = { GPIO_PIN_RESET:0, GPIO_PIN_SET:1, HAL_OK:0, HAL_ERROR:1, HAL_MAX_DELAY:0xffffffff,
       LED_PORT:'GPIOC', LED_PIN:0x2000, BUTTONS_PORT:'GPIOE', BTN_FIRE_PIN:0x10,
       BOARD_NAME:target === 'bluepill' ? 'STM32F103C8T6 Blue Pill' : 'STM32H743IITx',
-      SystemCoreClock:target === 'bluepill' ? 72000000 : 400000000, huart1:'USART1', GPIOA:'GPIOA', GPIOB:'GPIOB', GPIOC:'GPIOC', GPIOE:'GPIOE' };
+      SystemCoreClock:target === 'bluepill' ? 72000000 : 400000000, huart1:'USART1', GPIOA:'GPIOA', GPIOB:'GPIOB', GPIOC:'GPIOC', GPIOE:'GPIOE', NULL:0, pdTRUE:1, pdFALSE:0, pdPASS:1 };
   }
   async start() {
     const parser = new CParser(tokenizeC(this.source,this.target));
@@ -242,10 +243,12 @@ export class CBoardSimulation {
     this.cb.onStatus('Running main.c');
     try { await this.callFunction('main', []); }
     catch (error) { if (this.running) this.cb.onStatus(`Simulation stopped: ${error.message}`); }
-    if (this.running) { this.running = false; this.cb.onStatus('main() returned'); }
+    if (this.running && this.schedulerStarted) this.cb.onStatus('FreeRTOS scheduler running');
+    else if (this.running) { this.running = false; this.cb.onStatus('main() returned'); }
   }
   stop() {
     this.running = false;
+    this.schedulerWaiter?.(); this.schedulerWaiter = null;
     for (const resolve of this.waitingRx.splice(0)) resolve(null);
     for (const [timer, resolve] of this.delayWaiters) { clearTimeout(timer); resolve(); }
     this.delayWaiters.clear();
@@ -267,10 +270,11 @@ export class CBoardSimulation {
     if (++this.steps % 160 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
     if (!this.running) throw new Error('stopped');
   }
-  async callFunction(name, args) {
+  async callFunction(name, args, callerScope = this.scope) {
     const fn = this.functions.get(name);
-    if (!fn) return this.builtin(name, args);
-    const scope = new Scope(this.scope);
+    if (!fn) return this.builtin(name, args, callerScope);
+    const scope = new Scope(callerScope);
+    scope.task = callerScope?.task || null;
     fn.params.forEach((param, i) => scope.declare(param, args[i]));
     const prior = this.scope; this.scope = scope;
     const signal = await this.execute(fn.ast);
@@ -330,7 +334,7 @@ export class CBoardSimulation {
     }
     if (node.type === 'call') {
       const args=[]; for (const arg of node.args) args.push(await this.evalExpr(arg, scope));
-      return this.callFunction(node.name, args);
+      return this.callFunction(node.name, args, scope);
     }
     if (node.type === 'binary') {
       if (node.op === '=') return this.assign(node.left, scope, await this.evalExpr(node.right, scope));
@@ -379,7 +383,7 @@ export class CBoardSimulation {
     return new Promise((resolve) => this.waitingRx.push(resolve));
   }
   emit(text) { this.cb.onOutput(String(text)); }
-  async builtin(name, a) {
+  async builtin(name, a, scope = this.scope) {
     switch(name) {
       case 'HAL_Init': case 'SystemClock_Config': case 'MX_GPIO_Init': case 'MX_USART1_UART_Init': case 'board_init': case 'MX_SPI1_Init': case 'lcd_init': return 0;
       case 'HAL_GetTick': case 'millis': return this.tick();
@@ -392,6 +396,34 @@ export class CBoardSimulation {
         if (!this.running || epoch!==this.epoch) throw new Error('stopped');
         return 0;
       }
+      case 'xTaskCreate': {
+        const task = { function: String(a[0]), name: String(a[1]), argument: a[3], priority: Number(a[4]) || 0, state: 'Ready' };
+        this.rtosTasks.push(task);
+        this.cb.onRtos({ type: 'create', task: { name: task.name, priority: task.priority, state: task.state } });
+        if (a[5]?.__pointer) a[5].scope.set(a[5].name, task.name);
+        return 1;
+      }
+      case 'vTaskStartScheduler': {
+        this.schedulerStarted = true;
+        this.cb.onRtos({ type: 'scheduler', state: 'Running' });
+        for (const task of this.rtosTasks) {
+          task.state = 'Running';
+          const taskScope = new Scope(scope); taskScope.task = task;
+          this.cb.onRtos({ type: 'state', name: task.name, state: task.state });
+          void this.callFunction(task.function, [task.argument], taskScope).catch((error) => {
+            if (this.running) this.cb.onStatus(`RTOS task ${task.name}: ${error.message}`);
+          });
+        }
+        return new Promise((resolve) => { this.schedulerWaiter = resolve; });
+      }
+      case 'vTaskDelay': {
+        const task = scope?.task;
+        if (task) { task.state = 'Blocked'; this.cb.onRtos({ type: 'state', name: task.name, state: task.state }); }
+        const result = await this.builtin('HAL_Delay', [Number(a[0])], scope);
+        if (task && this.running) { task.state = 'Running'; this.cb.onRtos({ type: 'state', name: task.name, state: task.state }); }
+        return result;
+      }
+      case 'xTaskGetTickCount': return this.tick();
       case 'HAL_GPIO_TogglePin': case 'led_toggle': this.led=!this.led; this.cb.onLed(this.led); return 0;
       case 'HAL_GPIO_WritePin': this.led=Number(a[2])===0; this.cb.onLed(this.led); return 0;
       case 'HAL_GPIO_ReadPin': case 'buttons_read': return this.buttonDown ? 0 : 1;

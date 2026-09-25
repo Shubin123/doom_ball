@@ -18,6 +18,7 @@ class ExamplePreview {
       <button type="button" class="board-button" id="preview-button" aria-label="Press simulated PE4 button">PE4</button>
       <div class="board-led" id="preview-led"><i></i><span>PC13 · LED</span></div><div class="board-pins">PA9 TX · PA10 RX<br>USART1 · 115200 8N1</div></div>
       <div class="lcd-preview" id="preview-lcd" hidden><span>ILI9341 · RGB565</span><b id="preview-color-name">LCD waiting</b></div>
+      <div class="rtos-preview" id="preview-rtos" hidden><div class="rtos-title"><b>FreeRTOS task list</b><span id="rtos-status">waiting for scheduler</span></div><div id="rtos-task-list"></div><div class="rtos-caption">Task state changes are reported by the selected C source simulation.</div></div>
       <div class="preview-terminal"><div class="preview-term-title">USART output / runtime <span id="preview-status">loading C source</span></div><pre id="preview-log" aria-live="polite"></pre></div>
       <form class="preview-input" id="preview-form" hidden><input id="preview-send" aria-label="UART input" placeholder="Send bytes to USART1…"><button class="btn primary" type="submit">Send</button></form>
       <div class="preview-controls"><label>Simulation speed <select id="preview-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label><button class="btn" id="preview-restart" type="button">Restart C</button></div>
@@ -47,6 +48,23 @@ class ExamplePreview {
         definitions: definitions.filter((header) => typeof header === 'string'),
         onOutput: (text) => append('', text),
         onHostTx: (text) => append('TX  ', text),
+        onRtos: (event) => {
+          const panel = this.root.querySelector('#preview-rtos');
+          const statusLine = this.root.querySelector('#rtos-status');
+          const list = this.root.querySelector('#rtos-task-list');
+          if (event.type === 'scheduler') statusLine.textContent = `Scheduler ${event.state.toLowerCase()}`;
+          if (event.type === 'create') {
+            const row = document.createElement('div'); row.className = 'rtos-task'; row.dataset.taskName = event.task.name;
+            const name = document.createElement('span'); name.textContent = event.task.name;
+            const priority = document.createElement('span'); priority.className = 'rtos-priority'; priority.textContent = `Priority ${event.task.priority}`;
+            const state = document.createElement('span'); state.className = 'rtos-state'; state.textContent = event.task.state;
+            row.append(name, priority, state); list.appendChild(row);
+          }
+          if (event.type === 'state') {
+            const row = [...list.children].find((item) => item.dataset.taskName === event.name);
+            if (row) { row.querySelector('.rtos-state').textContent = event.state; row.classList.toggle('blocked', event.state === 'Blocked'); }
+          }
+        },
         onLed: (on) => led.classList.toggle('on', on),
         onLcd: (rgb565) => {
           const r = ((rgb565 >> 11) & 31) * 255 / 31, g = ((rgb565 >> 5) & 63) * 255 / 63, b = (rgb565 & 31) * 255 / 31;
@@ -76,6 +94,7 @@ class ExamplePreview {
       lcd.hidden = false;
       this.root.querySelector('.preview-board').hidden = true;
     }
+    this.root.querySelector('#preview-rtos').hidden = example?.id !== 'freertos';
     try { await createSimulator(); }
     catch (error) { if (runId === this.runId) status.textContent = `Simulation error: ${error.message}`; }
   }

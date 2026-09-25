@@ -177,6 +177,15 @@ button { cursor: pointer; }
 .preview-controls select { padding: 3px 5px; border: 1px solid #405365; border-radius: 4px; background: #101821; font-size: 10px; }
 .preview-input input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #405365; border-radius: 4px; background: #101821; font: 10px 'JetBrains Mono', monospace; }
 .preview-caption { color: #9eacbb; font: 9px/1.4 'Inter', sans-serif; }
+.rtos-preview { padding: 9px; border: 1px solid #42586b; border-radius: 6px; background: #101c27; color: #dce8f2; }
+.rtos-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.rtos-title b { color: #7dd3fc; font-size: 10px; }
+.rtos-title span, .rtos-caption { color: #91a4b6; font: 9px 'Inter',sans-serif; }
+.rtos-task { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 5px 2px; border-top: 1px solid #263747; font-size: 9px; }
+.rtos-priority { color: #9bacba; }
+.rtos-state { min-width: 48px; text-align: right; color: #86efac; }
+.rtos-task.blocked .rtos-state { color: #fbbf24; }
+.rtos-caption { margin-top: 6px; }
 .lcd-preview { flex: 1; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border: 7px solid #35404c; border-radius: 5px; background: var(--lcd-color,#e33); color: #fff; text-shadow: 0 1px 3px #000; box-shadow: inset 0 0 24px #0004, 0 3px 10px #0006; }
 .lcd-preview span { font-size: 8px; }
 .lcd-preview b { font-size: 18px; }
@@ -261,6 +270,26 @@ kbd {
 .floating.editor { min-width: 300px; }
 .floating.bottom { min-width: 320px; }
 .bottom.floating { border-top: 1px solid var(--border-bright); }
+.clock-pane { overflow: auto; }
+.clock-diagram { min-width: 0; flex: 1; overflow: auto; padding: 12px; background: var(--bg-deep); }
+.clock-source { margin-bottom: 10px; color: var(--text-dim); font-size: 9px; }
+.clock-tree { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+.clock-node { display: flex; flex-direction: column; gap: 3px; min-width: 116px; padding: 9px; border: 1px solid #34516b; border-radius: 6px; background: linear-gradient(145deg,#1c2c3e,#14202d); }
+.clock-node.source { border-color: #397864; background: linear-gradient(145deg,#1a3935,#152b2c); }
+.clock-node.primary { border-color: #178b79; box-shadow: 0 0 0 1px #10b98135; }
+.clock-node small { color: #8ea9bf; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+.clock-node b { color: #e2efff; font: 600 13px 'JetBrains Mono',monospace; }
+.clock-node span { color: #91a4b6; font-size: 9px; }
+.clock-arrow { align-self: center; color: var(--accent-bright); font: normal 18px 'Inter',sans-serif; }
+.clock-branches { display: grid; grid-template-columns: minmax(0,1fr) minmax(130px,.65fr); gap: 10px; padding-left: 18px; border-left: 1px solid #3e665f; }
+.clock-branch { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.clock-buses { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.clock-note { margin: 12px 0 2px; color: var(--text-dim); font-size: 10px; }
+.clock-note code { color: var(--accent-bright); font: 10px 'JetBrains Mono',monospace; }
+.clock-loading,.clock-error { color: var(--text-dim); font-size: 11px; }
+.clock-error { color: var(--error); }
+.f1-tree { gap: 12px; }
+.f1-tree .clock-branch { flex-direction: row; align-items: center; flex-wrap: wrap; }
 
 /* dialog */
 dialog {
@@ -285,6 +314,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
   body { overflow: auto; }
   #app { height: auto; grid-template-rows: auto auto 260px; }
   .main { grid-template-columns: 1fr !important; }
+  .main > .panel { grid-column: auto !important; }
   .files { max-height: 180px; border-right: none; border-bottom: 1px solid var(--border); }
   .editor { height: 55vh; }
   .side { border-left: none; }
