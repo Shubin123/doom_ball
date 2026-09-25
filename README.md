@@ -18,9 +18,13 @@ python3 server/forge_server.py          # then open http://localhost:8732/
 
 The server finds `arm-none-eabi-gcc` on `PATH`, in `ARM_GCC_PATH`, or under
 `~/.local/toolchains/*/bin` ([Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)).
-Without the server (for example on GitHub Pages) the IDE still works
-read-only: it shows the prebuilt firmware's linker report, runs the
-emulator and flashes `firmware/prebuilt/*.bin`.
+Without the server (on GitHub Pages, or by opening `index.html` straight
+from disk) the IDE still works read-only: it shows the prebuilt firmware's
+linker report, runs the emulator and flashes `firmware/prebuilt/*.bin`.
+Because browsers block `fetch()` on `file://`, the wasm is embedded in
+`sim/doom.js`, and the WAD, prebuilt images and file list also ship as
+script files (`tools/embed_assets.py`). The IDE's modules are bundled into
+`ide/forge.js` (`tools/bundle_ide.py`); rerun that after editing `ide/`.
 
 Flashing and the serial console use Web Serial and WebUSB, which need Chrome
 or Edge.
@@ -150,7 +154,7 @@ ide/flash/                  AN3155 (Web Serial) and DfuSe (WebUSB) flashers
 server/forge_server.py      local build server (stdlib Python)
 engine/doomgeneric/         DOOM engine (GPLv2)
 engine/platform/dg_web.c    emulator platform layer
-sim/                        WebAssembly build (sim/build.sh), DOOM1.WAD
+sim/                        WebAssembly build (sim/build.sh), DOOM1.WAD (+ .js copy)
 firmware/Makefile           make TARGET=h743|bluepill PROJECT=doom|blinky
 firmware/targets/h743/      H743 board, LCD, SD, syscalls, DOOM platform, linker script
 firmware/targets/bluepill/  Blue Pill board, syscalls, linker script

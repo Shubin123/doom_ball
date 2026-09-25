@@ -36,6 +36,19 @@ check $? "sim: title + demo with a 6 MB zone"
 node tests/sim_headless.mjs 0 3000 --h743
 check $? "sim: 3000 tics with the H743 zone banks"
 
+step "IDE opened from disk (file://)"
+cp ide/forge.js /tmp/forge_bundle_before.js
+python3 tools/bundle_ide.py >/dev/null
+cmp -s ide/forge.js /tmp/forge_bundle_before.js
+check $? "ide/forge.js is up to date with the ide/ modules"
+CHROME=${CHROME:-$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)}
+if [ -n "$CHROME" ]; then
+  node tests/file_url.mjs "$CHROME"
+  check $? "index.html from file:// runs DOOM in headless Chrome"
+else
+  echo "SKIP: no Chrome/Chromium found (set CHROME)"
+fi
+
 step "H743 firmware in the Cortex-M7 emulator"
 if $PYTHON -c "import unicorn, elftools, PIL" 2>/dev/null; then
   $PYTHON tests/emu/h743_emu.py --frames 120 --timeout 900 \

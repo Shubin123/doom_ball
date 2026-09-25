@@ -21,12 +21,35 @@ export function doomKey(e) {
   return null;
 }
 
+// Loads a classic script; unlike fetch() this also works from file://.
+export function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error(`could not load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+export function fromBase64(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 let wadPromise = null;
 function loadWad() {
-  wadPromise = wadPromise || fetch('sim/doom1.wad').then((r) => {
-    if (!r.ok) throw new Error(`DOOM1.WAD: HTTP ${r.status}`);
-    return r.arrayBuffer();
-  });
+  wadPromise = wadPromise || fetch('sim/doom1.wad')
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.arrayBuffer();
+    })
+    .catch(async () => {
+      await loadScript('sim/doom1.wad.js');
+      return fromBase64(window.FORGE_WAD_B64).buffer;
+    });
   return wadPromise;
 }
 

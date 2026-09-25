@@ -11,6 +11,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'server'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import forge_server  # noqa: E402
 
 OUT = os.path.join(forge_server.ROOT, 'firmware', 'prebuilt')
@@ -40,3 +41,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+    import embed_assets  # noqa: E402
+    embed_assets.main()
