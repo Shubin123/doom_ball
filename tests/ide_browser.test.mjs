@@ -65,6 +65,16 @@ test('static IDE runs C source on virtual HAL and search opens real source match
     await waitFor(`document.querySelector('#source-search-results')?.textContent.includes('firmware/projects/button-led/main.c:')`);
     await evaluate(`([...document.querySelectorAll('.search-result')].find(x=>x.textContent.includes('firmware/projects/button-led/main.c:'))).click()`);
     await waitFor(`document.querySelector('.editor-tab.active')?.title === 'firmware/projects/button-led/main.c'`);
+    assert.equal(await evaluate(`document.querySelector('#btn-save') === null`), true);
+    await evaluate(`(() => { const cm=document.querySelector('.CodeMirror').CodeMirror; cm.setValue(cm.getValue()+'\\n// autosave verification\\n'); return true; })()`);
+    await waitFor(`JSON.parse(localStorage.getItem('stm32-forge-drafts-v1')||'{}')['firmware/projects/button-led/main.c']?.includes('autosave verification')`);
+    await waitFor(`document.querySelector('#modified-warning')?.textContent.includes('firmware/projects/button-led/main.c')`);
+    await evaluate(`document.querySelector('#btn-reset-samples').click()`);
+    assert.equal(await evaluate(`document.querySelector('#reset-dialog').open`), true);
+    assert.equal(await evaluate(`document.querySelector('#reset-file-list').textContent.includes('firmware/projects/button-led/main.c')`), true);
+    await evaluate(`document.querySelector('#confirm-reset-samples').click()`);
+    await waitFor(`document.querySelector('#modified-warning').hidden`);
+    assert.equal(await evaluate(`JSON.parse(localStorage.getItem('stm32-forge-drafts-v1')||'{}')['firmware/projects/button-led/main.c']`), undefined);
     const beforeDockedDrag = await evaluate(`document.querySelector('.files').getBoundingClientRect().left`);
     const headerPoint = await evaluate(`(() => { const r=document.querySelector('.files .panel-head').getBoundingClientRect(); return {x:r.left+Math.min(20,r.width/2),y:r.top+r.height/2}; })()`);
     await send('Input.dispatchMouseEvent', { type:'mousePressed', x:headerPoint.x, y:headerPoint.y, button:'left', buttons:1 });

@@ -76,6 +76,8 @@ button { cursor: pointer; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-bright); }
 .spacer { flex: 1; }
 .status { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.autosave-status { color: var(--accent-bright); }
+.autosave-status.failed { color: var(--error); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--error); flex-shrink: 0; }
 .dot.ok { background: var(--accent); }
 .dot.warn { background: var(--warning); }
@@ -270,6 +272,16 @@ kbd {
 .floating.editor { min-width: 300px; }
 .floating.bottom { min-width: 320px; }
 .bottom.floating { border-top: 1px solid var(--border-bright); }
+.modified-warning { position: fixed; right: 16px; bottom: 226px; z-index: 1000; width: min(360px, calc(100vw - 24px)); max-height: min(42vh, 360px); overflow: auto; padding: 12px; border: 1px solid #98651e; border-radius: 8px; background: color-mix(in srgb, var(--bg-panel) 95%, #7b4b0b); box-shadow: 0 12px 36px #0009; }
+.modified-warning[hidden] { display: none; }
+.modified-warning-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #f6c56e; font-size: 11px; }
+.modified-warning-head span { color: var(--text-dim); font: 10px 'JetBrains Mono',monospace; }
+.modified-warning-copy { margin-top: 4px; color: var(--text-dim); font-size: 10px; }
+.modified-warning ul,.reset-file-list { max-height: 150px; overflow: auto; margin: 8px 0; padding-left: 16px; }
+.modified-warning li,.reset-file-list li { margin: 2px 0; }
+.modified-file { max-width: 100%; padding: 1px 0; overflow: hidden; border: 0; background: none; color: var(--text); font: 9px 'JetBrains Mono',monospace; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.modified-file:hover { color: var(--accent-bright); text-decoration: underline; }
+.modified-warning > .btn { padding: 5px 8px; font-size: 10px; }
 .clock-pane { overflow: auto; }
 .clock-diagram { min-width: 0; flex: 1; overflow: auto; padding: 12px; background: var(--bg-deep); }
 .clock-source { margin-bottom: 10px; color: var(--text-dim); font-size: 9px; }

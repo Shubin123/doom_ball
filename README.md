@@ -14,8 +14,9 @@ STM32H743.
 
 GitHub Pages serves the complete static demo: the DOOM WebAssembly game, editable
 source browser, browser-side H743 compiler, linker reports, and prebuilt firmware.
-Source edits are saved as drafts in the current browser. The Build button compiles
-those drafts in the browser using a pinned WebAssembly ARM toolchain; no server or
+Source edits autosave as drafts in the current browser. A floating change notice
+lists modified sample files and can restore them to their original contents. The
+Build button compiles those drafts in the browser using a pinned WebAssembly ARM toolchain; no server or
 workflow runs. The first build downloads about 98 MB of compiler assets from
 unpkg, which the browser caches. Flashing and serial use Web Serial/WebUSB in
 Chrome or Edge on HTTPS.

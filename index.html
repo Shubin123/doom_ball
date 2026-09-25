@@ -26,12 +26,12 @@
       <select id="project" aria-label="Choose firmware example"></select>
     </label>
     <div class="sep"></div>
-    <button class="btn" id="btn-save" title="Save (Ctrl+S)" disabled>Save</button>
     <button class="btn primary" id="btn-build" title="Build (Ctrl+B)">Build</button>
     <button class="btn" id="btn-flash" title="Flash the device">Flash…</button>
     <button class="btn" id="btn-serial" title="Open the USART1 console">Connect serial</button>
     <button class="btn" id="btn-clock" title="Open the board clock diagram" aria-pressed="false">Clock diagram</button>
     <div class="spacer"></div>
+    <div class="status autosave-status" id="autosave-status" aria-live="polite">Autosave ready</div>
     <div class="status" id="server-status"><span class="dot"></span><span>checking build server…</span></div>
   </header>
 
@@ -127,6 +127,25 @@
     </form>
   </section>
 </div>
+
+<aside class="modified-warning" id="modified-warning" hidden aria-live="polite">
+  <div class="modified-warning-head"><strong>Modified sample files</strong><span id="modified-count"></span></div>
+  <div class="modified-warning-copy">Edits save automatically. Reset restores these files to their original sample versions.</div>
+  <ul id="modified-files"></ul>
+  <button class="btn" id="btn-reset-samples" type="button">Reset to default samples</button>
+</aside>
+
+<dialog id="reset-dialog">
+  <form method="dialog">
+    <h3>Reset modified sample files?</h3>
+    <p class="hint">This restores every listed file to the version captured before its first edit.</p>
+    <ul id="reset-file-list" class="reset-file-list"></ul>
+    <div class="actions">
+      <button class="btn" value="cancel">Cancel</button>
+      <button class="btn primary" id="confirm-reset-samples" value="reset">Reset files</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="flash-dialog">
   <form method="dialog">

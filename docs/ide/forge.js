@@ -1561,9 +1561,60 @@ const state = {
   console: null,       // { reader, writer } while the console is open
 };
 const DRAFT_KEY = 'stm32-forge-drafts-v1';
+const BASELINE_KEY = 'stm32-forge-baselines-v1';
+const MODIFIED_KEY = 'stm32-forge-modified-v1';
+const autosaveTimers = new Map();
+const autosaveWrites = new Map();
 function drafts() {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
   catch { return {}; }
+}
+function storedObject(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; }
+  catch { return {}; }
+}
+function saveStoredObject(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+function autosaveStatus(message, failed = false) {
+  const status = $('autosave-status');
+  status.textContent = message;
+  status.classList.toggle('failed', failed);
+}
+function rememberBaseline(path, text) {
+  const baselines = storedObject(BASELINE_KEY);
+  if (Object.hasOwn(baselines, path)) return;
+  baselines[path] = text;
+  try { saveStoredObject(BASELINE_KEY, baselines); }
+  catch { autosaveStatus('Autosave storage full', true); }
+}
+function syncModifiedFile(path, text) {
+  const baselines = storedObject(BASELINE_KEY), modified = storedObject(MODIFIED_KEY);
+  if (!Object.hasOwn(baselines, path)) return;
+  if (text === baselines[path]) delete modified[path];
+  else modified[path] = true;
+  try { saveStoredObject(MODIFIED_KEY, modified); }
+  catch { autosaveStatus('Autosave storage full', true); }
+  renderModifiedFiles();
+}
+function modifiedPaths() {
+  const modified = storedObject(MODIFIED_KEY);
+  for (const [path, file] of state.open) syncModifiedFile(path, file.doc.getValue());
+  return Object.keys(storedObject(MODIFIED_KEY)).sort();
+}
+function renderModifiedFiles() {
+  const paths = Object.keys(storedObject(MODIFIED_KEY)).sort();
+  const warning = $('modified-warning');
+  warning.hidden = paths.length === 0;
+  $('modified-count').textContent = `${paths.length} file${paths.length === 1 ? '' : 's'}`;
+  const list = $('modified-files'); list.textContent = '';
+  for (const path of paths) {
+    const item = document.createElement('li');
+    const link = document.createElement('button');
+    link.type = 'button'; link.className = 'modified-file'; link.textContent = path;
+    link.addEventListener('click', () => openFile(path));
+    item.appendChild(link); list.appendChild(item);
+  }
 }
 
 const combo = () => `${$('target').value}-${$('project').value}`;
@@ -1610,6 +1661,7 @@ async function detectServer() {
   }
   $('btn-build').disabled = false;
   $('btn-build').title = state.server ? 'Build (Ctrl+B)' : 'Build H743 firmware in this browser (Ctrl+B)';
+  autosaveStatus(state.server ? 'Autosave writes to checkout' : 'Autosave writes on this device');
 }
 
 // Prebuilt manifest + images as a script (fallback when fetch is blocked).
@@ -1811,7 +1863,11 @@ function editor() {
     });
     cm.on('change', () => {
       const f = state.open.get(state.active);
-      if (f) renderTabs();
+      if (f) {
+        renderTabs();
+        syncModifiedFile(state.active, f.doc.getValue());
+        scheduleAutosave(state.active, f);
+      }
     });
   }
   return cm;
@@ -1840,9 +1896,11 @@ async function openFile(path) {
         : `could not open ${path}: ${e.message}`, 'err');
       return;
     }
+    rememberBaseline(path, text);
     if (!state.server) text = drafts()[path] ?? text;
     const doc = CodeMirror.Doc(text, modeFor(path));
     state.open.set(path, { doc, saved: doc.changeGeneration() });
+    syncModifiedFile(path, text);
   }
   state.active = path;
   editor().swapDoc(state.open.get(path).doc);
@@ -1866,13 +1924,14 @@ function renderTabs() {
     });
     tabs.appendChild(t);
   }
-  const f = state.open.get(state.active);
-  $('btn-save').disabled = !f || f.doc.isClean(f.saved);
 }
 
-function closeFile(path) {
+async function closeFile(path) {
   const f = state.open.get(path);
-  if (f && !f.doc.isClean(f.saved) && !confirm(`Discard unsaved changes to ${path}?`)) return;
+  if (f && !f.doc.isClean(f.saved)) {
+    clearTimeout(autosaveTimers.get(path)); autosaveTimers.delete(path);
+    if (!await saveDocument(path, f) || !f.doc.isClean(f.saved)) return;
+  }
   state.open.delete(path);
   if (state.active === path) {
     const next = [...state.open.keys()].pop();
@@ -1886,37 +1945,111 @@ function closeFile(path) {
 }
 
 async function saveAll() {
-  const local = drafts();
-  let saved = 0;
-  for (const [path, f] of state.open) {
-    if (f.doc.isClean(f.saved)) continue;
-    if (state.server) {
-      const r = await fetch(`api/file?path=${encodeURIComponent(path)}`, { method: 'PUT', body: f.doc.getValue() });
-      if (!r.ok) {
-        line('build', `save failed: ${path}`, 'err');
-        continue;
-      }
-    } else {
-      local[path] = f.doc.getValue();
-    }
-    f.saved = f.doc.changeGeneration();
-    saved++;
-  }
-  if (!state.server && saved) {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(local));
-      line('build', `saved ${saved} browser draft${saved === 1 ? '' : 's'} on this device`, 'ok');
-    } catch (e) {
-      line('build', `could not save browser drafts: ${e.message}`, 'err');
-      return;
-    }
-  } else if (state.server && saved) line('build', `saved ${saved} file${saved === 1 ? '' : 's'} to the checkout`, 'dim');
-  renderTabs();
+  const pending = [...state.open.entries()].map(([path, file]) => {
+    clearTimeout(autosaveTimers.get(path)); autosaveTimers.delete(path);
+    return saveDocument(path, file);
+  });
+  const results = await Promise.all(pending);
+  return results.every(Boolean);
 }
-$('btn-save').addEventListener('click', saveAll);
+
+function scheduleAutosave(path, file, delay = 450) {
+  clearTimeout(autosaveTimers.get(path));
+  if (!file || file.doc.isClean(file.saved)) return;
+  autosaveStatus('Saving…');
+  autosaveTimers.set(path, setTimeout(() => {
+    autosaveTimers.delete(path);
+    void saveDocument(path, file);
+  }, delay));
+}
+
+async function saveDocument(path, file) {
+  if (!file || file.doc.isClean(file.saved)) return true;
+  const previous = autosaveWrites.get(path);
+  if (previous) {
+    await previous.catch(() => false);
+    return file.doc.isClean(file.saved) ? true : saveDocument(path, file);
+  }
+  const write = (async () => {
+    const generation = file.doc.changeGeneration();
+    const content = file.doc.getValue();
+    try {
+      if (state.server) {
+        const response = await fetch(`api/file?path=${encodeURIComponent(path)}`, { method: 'PUT', body: content });
+        if (!response.ok) throw new Error(`server returned HTTP ${response.status}`);
+      } else {
+        const local = drafts(); local[path] = content;
+        saveStoredObject(DRAFT_KEY, local);
+      }
+      file.saved = generation;
+      syncModifiedFile(path, content);
+      renderTabs();
+      if (file.doc.isClean(file.saved)) autosaveStatus(state.server ? 'Saved to checkout' : 'Saved on this device');
+      else scheduleAutosave(path, file, 150);
+      return true;
+    } catch (error) {
+      autosaveStatus('Autosave failed; retrying', true);
+      line('build', `autosave failed for ${path}: ${error.message}`, 'err');
+      scheduleAutosave(path, file, 2500);
+      return false;
+    }
+  })();
+  autosaveWrites.set(path, write);
+  try { return await write; }
+  finally { if (autosaveWrites.get(path) === write) autosaveWrites.delete(path); }
+}
+
+async function resetModifiedSamples() {
+  if (!await saveAll()) return;
+  await Promise.all([...autosaveWrites.values()].map((write) => write.catch(() => false)));
+  const paths = modifiedPaths();
+  if (!paths.length) return;
+  const baselines = storedObject(BASELINE_KEY);
+  if (paths.some((path) => !Object.hasOwn(baselines, path))) {
+    autosaveStatus('Cannot reset: a baseline is missing', true); return;
+  }
+  try {
+    const changes = drafts();
+    for (const path of paths) {
+      const content = baselines[path];
+      if (state.server) {
+        const response = await fetch(`api/file?path=${encodeURIComponent(path)}`, { method: 'PUT', body: content });
+        if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+      } else delete changes[path];
+      const file = state.open.get(path);
+      if (file) {
+        file.doc.setValue(content); file.saved = file.doc.changeGeneration();
+        clearTimeout(autosaveTimers.get(path)); autosaveTimers.delete(path);
+      }
+    }
+    if (!state.server) saveStoredObject(DRAFT_KEY, changes);
+    saveStoredObject(MODIFIED_KEY, {});
+    renderTabs(); renderModifiedFiles();
+    autosaveStatus('Samples restored to defaults');
+  } catch (error) {
+    autosaveStatus('Reset failed', true);
+    line('build', `sample reset failed: ${error.message}`, 'err');
+  }
+}
+
+$('btn-reset-samples').addEventListener('click', () => {
+  const paths = modifiedPaths();
+  if (!paths.length) return;
+  const list = $('reset-file-list'); list.textContent = '';
+  for (const path of paths) { const item = document.createElement('li'); item.textContent = path; list.appendChild(item); }
+  $('reset-dialog').showModal();
+});
+$('confirm-reset-samples').addEventListener('click', (event) => {
+  event.preventDefault(); $('reset-dialog').close(); void resetModifiedSamples();
+});
 
 // ------------------------------------------------------------ build --
 async function build() {
+  if (!await saveAll()) {
+    showTerm('build');
+    line('build', 'Build stopped because one or more edited files could not be autosaved.', 'err');
+    return;
+  }
   if (!state.server) {
     showTerm('build');
     if ($('target').value !== 'h743') {
@@ -1926,7 +2059,6 @@ async function build() {
     await buildInBrowser();
     return;
   }
-  await saveAll();
   const [target, project] = [$('target').value, $('project').value];
   showTerm('build');
   $('term-build').textContent = '';
@@ -2386,13 +2518,30 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAll(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); build(); }
 });
-window.addEventListener('beforeunload', (e) => {
-  if ([...state.open.values()].some((f) => !f.doc.isClean(f.saved))) e.preventDefault();
+window.addEventListener('pagehide', () => {
+  const changed = [...state.open.entries()].filter(([, file]) => !file.doc.isClean(file.saved));
+  if (!changed.length) return;
+  if (state.server) {
+    for (const [path, file] of changed) {
+      void fetch(`api/file?path=${encodeURIComponent(path)}`, { method: 'PUT', body: file.doc.getValue(), keepalive: true });
+    }
+    return;
+  }
+  const local = drafts(), modified = storedObject(MODIFIED_KEY);
+  for (const [path, file] of changed) {
+    const content = file.doc.getValue(); local[path] = content;
+    const baseline = storedObject(BASELINE_KEY)[path];
+    if (baseline === content) delete modified[path]; else modified[path] = true;
+  }
+  try { saveStoredObject(DRAFT_KEY, local); saveStoredObject(MODIFIED_KEY, modified); }
+  catch { /* Keep the already autosaved draft if a final pagehide write exceeds quota. */ }
 });
 
 (async () => {
   await Promise.all([detectServer(), loadManifest(), loadProjectCatalog()]);
   await loadTree();
+  for (const [path, text] of Object.entries(drafts())) syncModifiedFile(path, text);
+  renderModifiedFiles();
   line('build', state.server
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
     : 'Static IDE ready: edit sources, build H743 firmware in the browser, and flash with Web Serial or WebUSB. Browser drafts stay on this device.', 'dim');
