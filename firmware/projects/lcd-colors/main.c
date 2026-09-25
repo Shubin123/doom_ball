@@ -1,5 +1,5 @@
 /* ILI9341 SPI display and RGB565 color-cycle example for the STM32H743. */
-#include "board.h"
+#include "main.h"
 
 int main(void)
 {
@@ -8,11 +8,14 @@ int main(void)
     };
     unsigned index = 0;
 
-    board_init();
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
     lcd_init();
     for (;;) {
         lcd_fill(colors[index]);
         index = (index + 1) % (sizeof(colors) / sizeof(colors[0]));
-        delay_ms(700);
+        HAL_Delay(700);
     }
 }

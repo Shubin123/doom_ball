@@ -1,23 +1,24 @@
-/* Button-controlled PC13 LED example for the STM32H743. */
+/* Active-low PE4 button toggles the PC13 LED on the STM32H743. */
 #include <stdio.h>
-
-#include "board.h"
-#include "board_config.h"
+#include "main.h"
 
 int main(void)
 {
-    const uint32_t button = (uint32_t)BTN_FIRE_PIN;
-    uint32_t was_pressed = 0;
+    GPIO_PinState previousState = GPIO_PIN_SET;
 
-    board_init();
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
     puts("Button controlled LED: press PE4 to toggle PC13.");
+
     for (;;) {
-        const uint32_t pressed = (buttons_read() & button) != 0;
-        if (pressed && !was_pressed) {
-            led_toggle();
+        const GPIO_PinState currentState = HAL_GPIO_ReadPin(BUTTONS_PORT, BTN_FIRE_PIN);
+        if (currentState == GPIO_PIN_RESET && previousState == GPIO_PIN_SET) {
+            HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
             puts("button press");
-            delay_ms(30);
+            HAL_Delay(30);
         }
-        was_pressed = pressed;
+        previousState = currentState;
     }
 }

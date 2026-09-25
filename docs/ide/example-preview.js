@@ -1,54 +1,83 @@
-// Small, project-specific hardware previews. These model the example's visible
-// behavior in the browser; they do not execute the compiled firmware image.
+// Presents the STM32 peripheral model driven by CBoardSimulation. The preview
+// executes the selected application source in the C interpreter; no example
+// timing or serial messages are hard-coded here.
 class ExamplePreview {
-  constructor(root) { this.root = root; this.timer = null; }
+  constructor(root) { this.root = root; this.sim = null; this.runId = 0; }
 
   stop() {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
+    this.runId++;
+    if (this.sim) this.sim.stop();
+    this.sim = null;
   }
 
-  show(example) {
+  async show(example, { target, readSource }) {
     this.stop();
     this.root.hidden = false;
-    const id = example?.id || 'blinky';
-    const title = example?.name || 'Firmware example';
-    const header = `<div class="preview-head"><span>${title}</span><span class="preview-tag">HARDWARE PREVIEW · SIMULATED</span></div>`;
-    const board = `<div class="preview-board"><div class="board-label">STM32 ${$('target').value === 'bluepill' ? 'F103 · Blue Pill' : 'H743 · Nucleo'}</div><div class="board-chip">STM32</div><div class="board-led" id="preview-led"><i></i><span>PC13 · LED</span></div><div class="board-pins">PA9 TX · PA10 RX<br>USART1 · 115200 8N1</div></div>`;
-    const terminal = `<div class="preview-terminal"><div class="preview-term-title">Example output <span>simulated</span></div><pre id="preview-log" aria-live="polite"></pre></div>`;
-    if (id === 'lcd-colors') {
-      this.root.innerHTML = `${header}<div class="lcd-preview" id="preview-lcd"><span>ILI9341 · RGB565</span><b id="preview-color-name">RED</b></div><div class="preview-caption">Color cycle · 700 ms · SPI display preview</div>`;
-      const colors = [['RED','#ee3038'],['ORANGE','#ff8b25'],['YELLOW','#f6dd35'],['GREEN','#39c76b'],['CYAN','#37c8d0'],['BLUE','#356bea'],['MAGENTA','#d744c7'],['WHITE','#f5f5f2']];
-      let n = 0;
-      const paint = () => { this.root.querySelector('#preview-lcd').style.setProperty('--lcd-color', colors[n][1]); this.root.querySelector('#preview-color-name').textContent = colors[n][0]; n = (n + 1) % colors.length; };
-      paint(); this.timer = setInterval(paint, 700); return;
-    }
-    if (id === 'uart-echo') {
-      this.root.innerHTML = `${header}${board}${terminal}<form class="preview-input" id="preview-form"><input id="preview-send" aria-label="UART text" placeholder="Type a line to send…"><button class="btn primary">Send</button></form><div class="preview-caption">USART1 echo · input is shown as TX, echoed response as RX.</div>`;
-      const log = this.root.querySelector('#preview-log');
-      this.root.querySelector('#preview-form').addEventListener('submit', (event) => { event.preventDefault(); const input = this.root.querySelector('#preview-send'); const value = input.value; if (!value) return; log.textContent += `TX  ${value}\nRX  ${value}\n`; log.scrollTop = log.scrollHeight; input.value = ''; });
-      return;
-    }
-    this.root.innerHTML = `${header}${board}${terminal}<div class="preview-controls" id="preview-controls"></div><div class="preview-caption" id="preview-caption"></div>`;
-    const led = this.root.querySelector('#preview-led');
+    this.root.innerHTML = `<div class="preview-head"><span class="preview-title"></span><span class="preview-tag">C SOURCE SIMULATION</span></div>
+      <div class="preview-board"><div class="board-label">STM32 ${target === 'bluepill' ? 'F103 · Blue Pill' : 'H743 · board model'}</div><div class="board-chip">STM32</div>
+      <button type="button" class="board-button" id="preview-button" aria-label="Press simulated PE4 button">PE4</button>
+      <div class="board-led" id="preview-led"><i></i><span>PC13 · LED</span></div><div class="board-pins">PA9 TX · PA10 RX<br>USART1 · 115200 8N1</div></div>
+      <div class="lcd-preview" id="preview-lcd" hidden><span>ILI9341 · RGB565</span><b id="preview-color-name">LCD waiting</b></div>
+      <div class="preview-terminal"><div class="preview-term-title">USART output / runtime <span id="preview-status">loading C source</span></div><pre id="preview-log" aria-live="polite"></pre></div>
+      <form class="preview-input" id="preview-form" hidden><input id="preview-send" aria-label="UART input" placeholder="Send bytes to USART1…"><button class="btn primary" type="submit">Send</button></form>
+      <div class="preview-controls"><label>Simulation speed <select id="preview-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label><button class="btn" id="preview-restart" type="button">Restart C</button></div>
+      <div class="preview-caption">Interprets the selected main.c logic against virtual STM32 peripherals. Restart C to reload editor buffers; Build creates the ARM image and Flash verifies it on hardware.</div>`;
+    this.root.querySelector('.preview-title').textContent = example?.name || 'Firmware example';
     const log = this.root.querySelector('#preview-log');
-    const controls = this.root.querySelector('#preview-controls');
-    const caption = this.root.querySelector('#preview-caption');
-    let on = false, count = 0;
-    const setLed = (value) => { on = value; led.classList.toggle('on', on); };
-    if (id === 'button-led') {
-      caption.textContent = 'Press the virtual PE4 button to toggle PC13, matching the active-low board input.';
-      controls.innerHTML = '<button class="btn" id="preview-button">PE4 · PRESS</button>';
-      controls.querySelector('button').addEventListener('click', () => { setLed(!on); log.textContent += `button press → LED ${on ? 'on' : 'off'}\n`; log.scrollTop = log.scrollHeight; });
-      return;
+    const status = this.root.querySelector('#preview-status');
+    const led = this.root.querySelector('#preview-led');
+    const lcd = this.root.querySelector('#preview-lcd');
+    const sendForm = this.root.querySelector('#preview-form');
+    const append = (prefix, text) => { log.textContent += prefix + text; if (log.textContent.length > 12000) log.textContent = log.textContent.slice(-10000); log.scrollTop = log.scrollHeight; };
+    const createSimulator = async () => {
+      if (this.sim) this.sim.stop();
+      this.sim = null;
+      const runId = ++this.runId;
+      log.textContent = ''; status.textContent = 'loading C source';
+      const source = await readSource(example.entry);
+      if (runId !== this.runId) return;
+      if (typeof source !== 'string') throw new Error(`Could not load ${example.entry}`);
+      const targetHeaders = target === 'bluepill'
+        ? ['firmware/targets/bluepill/board.h']
+        : ['firmware/targets/h743/board.h','firmware/targets/h743/board_config.h'];
+      const definitions = await Promise.all(targetHeaders.map((path) => readSource(path)));
+      if (runId !== this.runId) return;
+      this.sim = new CBoardSimulation(source, {
+        target,
+        definitions: definitions.filter((header) => typeof header === 'string'),
+        onOutput: (text) => append('', text),
+        onHostTx: (text) => append('TX  ', text),
+        onLed: (on) => led.classList.toggle('on', on),
+        onLcd: (rgb565) => {
+          const r = ((rgb565 >> 11) & 31) * 255 / 31, g = ((rgb565 >> 5) & 63) * 255 / 63, b = (rgb565 & 31) * 255 / 31;
+          const hex = `#${[r,g,b].map((v) => Math.round(v).toString(16).padStart(2,'0')).join('')}`;
+          lcd.hidden = false; lcd.style.setProperty('--lcd-color', hex); this.root.querySelector('#preview-color-name').textContent = `RGB565 0x${rgb565.toString(16).padStart(4,'0').toUpperCase()}`;
+        },
+        onStatus: (text) => { status.textContent = text; },
+      });
+      this.sim.setSpeed(this.root.querySelector('#preview-speed').value);
+      void this.sim.start();
+    };
+    this.root.querySelector('#preview-speed').addEventListener('change', (event) => this.sim?.setSpeed(event.target.value));
+    this.root.querySelector('#preview-restart').addEventListener('click', () => createSimulator().catch((error) => { status.textContent = error.message; }));
+    const button = this.root.querySelector('#preview-button');
+    button.addEventListener('pointerdown', () => this.sim?.pressButton(true));
+    for (const type of ['pointerup','pointercancel','pointerleave']) button.addEventListener(type, () => this.sim?.pressButton(false));
+    button.addEventListener('click', () => { this.sim?.pressButton(true); setTimeout(() => this.sim?.pressButton(false), 120); });
+    if (example?.id === 'button-led') button.hidden = false;
+    else button.hidden = true;
+    if (example?.id === 'uart-echo') sendForm.hidden = false;
+    sendForm.addEventListener('submit', (event) => {
+      event.preventDefault(); const input = this.root.querySelector('#preview-send');
+      if (!input.value) return;
+      this.sim?.sendSerial(`${input.value}\r`); input.value = '';
+    });
+    if (example?.id === 'lcd-colors') {
+      lcd.hidden = false;
+      this.root.querySelector('.preview-board').hidden = true;
     }
-    if (id === 'timer-blink') {
-      caption.textContent = 'PC13 pulses every 250 ms; uptime is reported once per second.';
-      this.timer = setInterval(() => { setLed(!on); count += 250; if (count % 1000 === 0) { log.textContent += `uptime ${count / 1000}s · LED ${on ? 'on' : 'off'}\n`; log.scrollTop = log.scrollHeight; } }, 250);
-      return;
-    }
-    caption.textContent = 'PC13 blinks every 500 ms; USART1 reports the blink count.';
-    this.timer = setInterval(() => { setLed(!on); log.textContent += `blink ${count++} · LED ${on ? 'on' : 'off'}\n`; log.scrollTop = log.scrollHeight; }, 500);
+    try { await createSimulator(); }
+    catch (error) { if (runId === this.runId) status.textContent = `Simulation error: ${error.message}`; }
   }
 
   hide() { this.stop(); this.root.hidden = true; }

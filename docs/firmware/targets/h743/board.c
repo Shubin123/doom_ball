@@ -11,7 +11,7 @@ UART_HandleTypeDef huart1;
 static volatile uint8_t rx_buf[256];
 static volatile uint8_t rx_head, rx_tail;
 
-static void clock_init(void)
+void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef osc = {0};
     RCC_ClkInitTypeDef clk = {0};
@@ -56,19 +56,9 @@ static void clock_init(void)
         board_panic("CLK");
 }
 
-static void console_init(void)
+void MX_USART1_UART_Init(void)
 {
-    GPIO_InitTypeDef gpio = {0};
-
-    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_USART1_CLK_ENABLE();
-
-    gpio.Pin = GPIO_PIN_9 | GPIO_PIN_10;
-    gpio.Mode = GPIO_MODE_AF_PP;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Speed = GPIO_SPEED_FREQ_HIGH;
-    gpio.Alternate = GPIO_AF7_USART1;
-    HAL_GPIO_Init(GPIOA, &gpio);
 
     huart1.Instance = USART1;
     huart1.Init.BaudRate = CONSOLE_BAUD;
@@ -129,8 +119,22 @@ void board_init(void)
     SCB_EnableICache();
     SCB_EnableDCache();
     HAL_Init();
-    clock_init();
-    console_init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+}
+
+void MX_GPIO_Init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    gpio.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+    gpio.Mode = GPIO_MODE_AF_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+    gpio.Alternate = GPIO_AF7_USART1;
+    HAL_GPIO_Init(GPIOA, &gpio);
     led_init();
     buttons_init();
 }

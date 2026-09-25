@@ -152,12 +152,15 @@ button { cursor: pointer; }
   position: relative; overflow: hidden;
 }
 .screen [hidden] { display: none !important; }
-.example-view { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; gap: 9px; padding: 12px; background: radial-gradient(ellipse at 50% 0%, #253b4d 0%, #111923 62%); color: #d8e3ed; font: 11px 'JetBrains Mono', monospace; }
+.example-view { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: radial-gradient(ellipse at 50% 0%, #253b4d 0%, #111923 62%); color: #d8e3ed; font: 11px 'JetBrains Mono', monospace; }
+.example-view [hidden] { display: none !important; }
 .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 12px; color: #f1f5f9; }
 .preview-tag { border: 1px solid #a47e36; border-radius: 9px; padding: 2px 6px; color: #f4c76b; font: 8px 'Inter', sans-serif; letter-spacing: .04em; white-space: nowrap; }
 .preview-board { position: relative; min-height: 138px; border: 1px solid #557261; border-radius: 8px; background: linear-gradient(130deg,#22543f,#173b30 58%,#102a23); box-shadow: inset 0 0 25px #061b1455, 0 5px 14px #0005; }
 .board-label { position: absolute; top: 8px; left: 10px; color: #c3dfca; font-size: 9px; }
 .board-chip { position: absolute; top: 37px; left: 42%; width: 68px; height: 52px; display: grid; place-items: center; border: 3px solid #89949d; border-radius: 5px; background: linear-gradient(135deg,#34414a,#111820); color: #bec8cf; font-size: 12px; box-shadow: 0 4px 7px #0008; }
+.board-button { position: absolute; top: 42px; left: 12px; min-width: 40px; min-height: 36px; border: 2px solid #9ca9b0; border-radius: 6px; background: linear-gradient(#d7dce0,#737d83); color: #19222a; font: 9px 'JetBrains Mono', monospace; box-shadow: 0 3px 4px #0008; touch-action: none; }
+.board-button:active { transform: translateY(2px); background: #7d8790; }
 .board-led { position: absolute; left: 12px; bottom: 10px; display: flex; align-items: center; gap: 7px; color: #d7e8d8; font-size: 9px; }
 .board-led i { width: 13px; height: 13px; border-radius: 50%; background: #3b1516; border: 2px solid #a66b67; box-shadow: inset 0 0 3px #000; }
 .board-led.on i { background: #ff4242; box-shadow: 0 0 12px 4px #ff363caa; }
@@ -167,6 +170,9 @@ button { cursor: pointer; }
 .preview-term-title span { float: right; color: #d5ad60; }
 .preview-terminal pre { max-height: 64px; overflow: auto; margin: 0; padding: 5px 7px; color: #95e6b1; font: 9px/1.45 'JetBrains Mono', monospace; white-space: pre-wrap; }
 .preview-controls,.preview-input { display: flex; gap: 7px; align-items: center; }
+.preview-controls { justify-content: space-between; color: #aebbc8; font: 9px 'Inter',sans-serif; }
+.preview-controls label { display: flex; align-items: center; gap: 5px; }
+.preview-controls select { padding: 3px 5px; border: 1px solid #405365; border-radius: 4px; background: #101821; font-size: 10px; }
 .preview-input input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #405365; border-radius: 4px; background: #101821; font: 10px 'JetBrains Mono', monospace; }
 .preview-caption { color: #9eacbb; font: 9px/1.4 'Inter', sans-serif; }
 .lcd-preview { flex: 1; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border: 7px solid #35404c; border-radius: 5px; background: var(--lcd-color,#e33); color: #fff; text-shadow: 0 1px 3px #000; box-shadow: inset 0 0 24px #0004, 0 3px 10px #0006; }

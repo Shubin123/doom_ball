@@ -1,25 +1,29 @@
-/* Nonblocking tick/heartbeat example for the STM32H743. */
+/* Nonblocking HAL tick and LED heartbeat for the STM32H743. */
 #include <stdio.h>
-
-#include "board.h"
+#include "main.h"
 
 int main(void)
 {
-    uint32_t next_blink, next_report;
+    uint32_t nextBlink;
+    uint32_t nextReport;
 
-    board_init();
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
     puts("Timer heartbeat ready.");
-    next_blink = millis() + 250;
-    next_report = millis() + 1000;
+    nextBlink = HAL_GetTick() + 250;
+    nextReport = HAL_GetTick() + 1000;
+
     for (;;) {
-        const uint32_t now = millis();
-        if ((int32_t)(now - next_blink) >= 0) {
-            led_toggle();
-            next_blink += 250;
+        const uint32_t now = HAL_GetTick();
+        if ((int32_t)(now - nextBlink) >= 0) {
+            HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+            nextBlink += 250;
         }
-        if ((int32_t)(now - next_report) >= 0) {
-            printf("uptime %lu ms\r\n", (unsigned long)now);
-            next_report += 1000;
+        if ((int32_t)(now - nextReport) >= 0) {
+            printf("uptime %lu ms\n", (unsigned long)now);
+            nextReport += 1000;
         }
     }
 }

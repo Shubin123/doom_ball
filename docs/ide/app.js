@@ -550,6 +550,21 @@ function overlay(html, bad) {
   o.innerHTML = html || '';
 }
 
+async function sourceForSimulation(path) {
+  const opened = state.open.get(path);
+  if (opened) return opened.doc.getValue();
+  const localDrafts = drafts();
+  if (localDrafts[path] != null) return localDrafts[path];
+  if (state.server) {
+    const response = await fetch(`api/file?path=${encodeURIComponent(path)}`);
+    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+    return (await response.json()).content;
+  }
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+  return response.text();
+}
+
 function updateEmulator() {
   if (sim.running) return;
   const target = $('target').value;
@@ -558,10 +573,10 @@ function updateEmulator() {
   const example = projectInfo();
   $('btn-run').disabled = false;
   if (project !== 'doom') {
-    $('emu-title').textContent = 'Example hardware preview';
+    $('emu-title').textContent = 'Example C simulation · virtual STM32 HAL';
     $('screen').hidden = true;
     overlay('');
-    examplePreview.show(example);
+    void examplePreview.show(example, { target, readSource: sourceForSimulation });
     $('btn-run').disabled = true;
     $('btn-stop').disabled = true;
     $('pad-hw').closest('label').hidden = true;

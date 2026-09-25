@@ -9,6 +9,12 @@
 void board_init(void);
 void board_panic(const char *what) __attribute__((noreturn));
 
+/* CubeMX-style initialization entry points shared by the example projects. */
+void SystemClock_Config(void);
+void MX_GPIO_Init(void);
+void MX_USART1_UART_Init(void);
+extern UART_HandleTypeDef huart1;
+
 void console_write(const char *buf, int len);
 int console_getc(void);            /* -1 if no byte waiting */
 uint32_t buttons_read(void);       /* bit n set = button on pin n pressed */

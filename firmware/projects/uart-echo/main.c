@@ -1,23 +1,25 @@
-/* USART1 echo example. Connect the IDE serial monitor at 115200 baud. */
-#include "board.h"
+/* USART1 echo example in the normal STM32Cube HAL application style. */
+#include "main.h"
 
 int main(void)
 {
-    static const char hello[] = "UART echo ready (115200 8N1)\r\n";
+    uint8_t rxByte;
 
-    board_init();
-    console_write(hello, (int)(sizeof(hello) - 1));
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+    const uint8_t ready[] = "UART echo ready (115200 8N1)\r\n";
+    HAL_UART_Transmit(&huart1, ready, sizeof(ready) - 1, HAL_MAX_DELAY);
+
     for (;;) {
-        const int ch = console_getc();
-        if (ch < 0)
-            continue;
-        if (ch == '\r') {
-            console_write("\r\n", 2);
-        } else if (ch == '\n') {
-            /* Ignore the LF paired with a terminal's CR. */
-        } else {
-            const char byte = (char)ch;
-            console_write(&byte, 1);
+        if (HAL_UART_Receive(&huart1, &rxByte, 1, HAL_MAX_DELAY) == HAL_OK) {
+            if (rxByte == '\r') {
+                static const uint8_t crlf[] = "\r\n";
+                HAL_UART_Transmit(&huart1, crlf, sizeof(crlf) - 1, HAL_MAX_DELAY);
+            } else if (rxByte != '\n') {
+                HAL_UART_Transmit(&huart1, &rxByte, 1, HAL_MAX_DELAY);
+            }
         }
     }
 }

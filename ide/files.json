@@ -195,6 +195,7 @@
     "firmware/targets/h743/dg_stm32.c",
     "firmware/targets/h743/h743.ld",
     "firmware/targets/h743/lcd_ili9341.c",
+    "firmware/targets/h743/main.h",
     "firmware/targets/h743/sd_diskio.c",
     "firmware/targets/h743/stm32h7xx_hal_conf.h",
     "firmware/targets/h743/syscalls.c",
