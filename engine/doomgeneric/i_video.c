@@ -119,7 +119,9 @@ int mouse_threshold = 10;
 
 // Gamma correction level to use
 
-int usegamma = 0;
+/* Doom's default palette is too dark on the target TFT and in the browser.
+ * Start with the same raised midtones as the game's Gamma correction setting. */
+int usegamma = 2;
 
 typedef struct
 {

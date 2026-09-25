@@ -57,13 +57,14 @@
     <aside class="panel side">
       <div class="section">
         <div class="panel-head">
-          <span>Emulator — DOOM engine (WebAssembly)</span>
+          <span id="emu-title">Emulator — DOOM engine (WebAssembly)</span>
           <span class="mono" id="emu-fps"></span>
         </div>
         <div class="section-body">
           <div class="screen">
             <canvas id="screen" width="320" height="200" tabindex="0" aria-label="DOOM emulator screen"></canvas>
             <div class="overlay" id="emu-overlay"></div>
+            <div id="example-view" class="example-view" hidden></div>
           </div>
           <div class="row">
             <button class="btn primary" id="btn-run">Run</button>

@@ -481,6 +481,7 @@ const sim = new DoomSim($('screen'), {
     overlay(`<strong>DOOM stopped</strong><span class="mono">${escapeHtml(reason)}</span>`, true);
   },
 });
+const examplePreview = new ExamplePreview($('example-view'));
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -501,11 +502,26 @@ function updateEmulator() {
   const example = projectInfo();
   $('btn-run').disabled = false;
   if (project !== 'doom') {
-    overlay(`<strong>${escapeHtml(example?.name || 'Firmware example')}</strong><span>${escapeHtml(example?.description || 'Build and flash this board example to try it.')}</span><span>Build this example, flash the image, then use the serial monitor or connected hardware as described.</span>`);
+    $('emu-title').textContent = 'Example hardware preview';
+    $('screen').hidden = true;
+    overlay('');
+    examplePreview.show(example);
     $('btn-run').disabled = true;
+    $('btn-stop').disabled = true;
+    $('pad-hw').closest('label').hidden = true;
+    $('screen').parentElement.nextElementSibling.hidden = true;
+    $('screen').parentElement.nextElementSibling.nextElementSibling.hidden = true;
+    $('screen-brightness').closest('.brightness-control').hidden = true;
     $('emu-note').textContent = '';
     return;
   }
+  $('emu-title').textContent = 'Emulator — DOOM engine (WebAssembly)';
+  examplePreview.hide();
+  $('screen').hidden = false;
+  $('pad-hw').closest('label').hidden = false;
+  $('screen').parentElement.nextElementSibling.hidden = false;
+  $('screen').parentElement.nextElementSibling.nextElementSibling.hidden = false;
+  $('screen-brightness').closest('.brightness-control').hidden = false;
   if (target === 'bluepill') {
     const ram = b && b.memory ? b.memory.find((m) => m.region === 'RAM') : null;
     overlay(`<strong>DOOM does not fit on a Blue Pill</strong>
