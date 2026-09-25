@@ -13,14 +13,15 @@ const TARGETS = {
   h743: { name: 'STM32H743IITx', core: 'Cortex-M7 @ 400 MHz', flash: 2097152, ram: 1048576 },
   bluepill: { name: 'STM32F103C8T6 (Blue Pill)', core: 'Cortex-M3 @ 72 MHz', flash: 65536, ram: 20480 },
 };
-const PROJECTS = ['doom', 'blinky'];
+const PROJECTS = JSON.parse(fs.readFileSync(path.join(ROOT, 'firmware/projects/catalog.json'), 'utf8'))
+  .projects.map((project) => project.id);
 const EDITABLE = [];
-for (const base of ['firmware/projects', 'firmware/targets', 'engine/platform', 'engine/doomgeneric']) {
+for (const base of ['firmware/projects', 'firmware/targets', 'firmware/third_party', 'engine/platform', 'engine/doomgeneric']) {
   const walk = (dir) => {
     for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
       const rel = `${dir}/${entry.name}`;
       if (entry.isDirectory()) walk(rel);
-      else if (/\.(c|h|s|ld)$/.test(entry.name) || entry.name === 'Makefile') EDITABLE.push(rel);
+      else if (/\.(c|h|s|ld|mk)$/.test(entry.name) || entry.name === 'Makefile') EDITABLE.push(rel);
     }
   };
   walk(base);

@@ -1,0 +1,41 @@
+{
+  "groups": [
+    { "id": "games", "name": "Games" },
+    { "id": "basics", "name": "Getting started" },
+    { "id": "io", "name": "Inputs and serial" },
+    { "id": "display", "name": "Display" }
+  ],
+  "projects": [
+    {
+      "id": "doom", "name": "DOOM", "group": "games",
+      "description": "Playable DOOM running on the H743 with a real 730 KB multi-bank heap. Build, change the C sources, and flash the result.",
+      "entry": "firmware/targets/h743/dg_stm32.c", "targets": ["h743"], "emulator": true
+    },
+    {
+      "id": "blinky", "name": "Blinky", "group": "basics",
+      "description": "The board's PC13 LED blinks every 500 ms and reports the count over USART1.",
+      "entry": "firmware/projects/blinky/main.c", "targets": ["h743", "bluepill"]
+    },
+    {
+      "id": "button-led", "name": "Button controlled LED", "group": "io",
+      "description": "Read the active-low PE4 button, toggle the PC13 LED on each press, and log the event to USART1.",
+      "entry": "firmware/projects/button-led/main.c", "targets": ["h743"]
+    },
+    {
+      "id": "uart-echo", "name": "UART echo", "group": "io",
+      "description": "Echo bytes received on USART1 at 115200 baud. Open the IDE serial monitor and type a line.",
+      "entry": "firmware/projects/uart-echo/main.c", "targets": ["h743"]
+    },
+    {
+      "id": "timer-blink", "name": "Timer and heartbeat", "group": "basics",
+      "description": "Use the board millisecond timer without blocking; pulse PC13 and report uptime once per second.",
+      "entry": "firmware/projects/timer-blink/main.c", "targets": ["h743"]
+    },
+    {
+      "id": "lcd-colors", "name": "LCD color cycle", "group": "display",
+      "description": "Initialize the ILI9341 SPI display and cycle through RGB565 color bars using the H743 board driver.",
+      "entry": "firmware/projects/lcd-colors/main.c", "targets": ["h743"],
+      "sources": ["firmware/targets/h743/lcd_ili9341.c"]
+    }
+  ]
+}

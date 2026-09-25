@@ -22,11 +22,8 @@
         <option value="bluepill">STM32F103C8T6 Blue Pill — 64 KB / 20 KB</option>
       </select>
     </label>
-    <label>Project
-      <select id="project">
-        <option value="doom">DOOM</option>
-        <option value="blinky">Blinky</option>
-      </select>
+    <label>Example
+      <select id="project" aria-label="Choose firmware example"></select>
     </label>
     <div class="sep"></div>
     <button class="btn" id="btn-save" title="Save (Ctrl+S)" disabled>Save</button>
@@ -40,6 +37,13 @@
   <div class="main">
     <aside class="panel files">
       <div class="panel-head">Files</div>
+      <section class="example-card" aria-live="polite">
+        <div class="example-kicker">Selected example</div>
+        <strong id="example-name">DOOM</strong>
+        <p id="example-description">Playable DOOM on the H743.</p>
+        <span id="example-targets" class="example-targets"></span>
+      </section>
+      <div class="panel-head file-list-head">Project files</div>
       <div id="tree" class="tree"></div>
     </aside>
 
@@ -72,6 +76,11 @@
             <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd>WASD</kbd> move · <kbd>Ctrl</kbd>/<kbd>F</kbd> fire ·
             <kbd>Space</kbd> use · <kbd>Enter</kbd>/<kbd>Esc</kbd> menu · <kbd>Shift</kbd> run
           </div>
+          <label class="brightness-control" for="screen-brightness">
+            <span aria-hidden="true">☼</span><span>Game brightness</span>
+            <input id="screen-brightness" type="range" min="100" max="175" value="140" aria-label="Game brightness">
+            <output id="screen-brightness-value" for="screen-brightness">140%</output>
+          </label>
           <div class="hint" id="emu-note"></div>
         </div>
       </div>

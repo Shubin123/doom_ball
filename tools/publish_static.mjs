@@ -27,7 +27,7 @@ async function visit(relative) {
   for (const entry of await fs.readdir(path.join(root, relative), { withFileTypes: true })) {
     const name = path.posix.join(relative, entry.name);
     if (entry.isDirectory()) await visit(name);
-    else if (/\.(c|h|s|inc|ld)$/.test(entry.name) || name === 'firmware/Makefile') files.push(name);
+    else if (/\.(c|h|s|inc|ld|mk)$/.test(entry.name) || name === 'firmware/Makefile') files.push(name);
   }
 }
 for (const folder of editorRoots) await visit(folder);

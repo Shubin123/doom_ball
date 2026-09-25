@@ -16,6 +16,8 @@ const state = {
   manifest: null,
   builds: {},          // "target-project" -> build result (from server or manifest)
   files: [],
+  projects: [],
+  projectGroups: [],
   open: new Map(),     // path -> { doc, saved }
   active: null,
   port: null,          // Web Serial port shared by console and UART flashing
@@ -109,6 +111,55 @@ async function loadTree() {
     }
   }
   renderTree();
+}
+
+async function loadProjectCatalog() {
+  let groups = [];
+  const fallback = [
+    { id: 'doom', name: 'DOOM', group: 'games', description: 'Playable DOOM on the H743.', entry: 'firmware/targets/h743/dg_stm32.c', targets: ['h743'], emulator: true },
+    { id: 'blinky', name: 'Blinky', group: 'basics', description: 'Blink PC13 and report over USART1.', entry: 'firmware/projects/blinky/main.c', targets: ['h743', 'bluepill'] },
+  ];
+  try {
+    const response = await fetch('firmware/projects/catalog.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('catalog unavailable');
+    const catalog = await response.json();
+    state.projects = catalog.projects;
+    groups = catalog.groups;
+  } catch {
+    state.projects = fallback;
+    groups = [{ id: 'games', name: 'Games' }, { id: 'basics', name: 'Getting started' }];
+  }
+  state.projectGroups = groups;
+  const select = $('project');
+  select.textContent = '';
+  for (const group of new Set(state.projects.map((project) => project.group))) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = groups.find((item) => item.id === group)?.name || group;
+    for (const project of state.projects.filter((item) => item.group === group)) {
+      const option = document.createElement('option');
+      option.value = project.id;
+      option.textContent = project.name;
+      option.dataset.targets = project.targets.join(',');
+      optgroup.appendChild(option);
+    }
+    select.appendChild(optgroup);
+  }
+  refreshProjectAvailability();
+}
+
+function projectInfo() {
+  return state.projects.find((project) => project.id === $('project').value) || state.projects[0];
+}
+
+function refreshProjectAvailability() {
+  const target = $('target').value;
+  for (const option of $('project').options) {
+    option.disabled = !option.dataset.targets.split(',').includes(target);
+  }
+  if ($('project').selectedOptions[0]?.disabled) {
+    const next = [...$('project').options].find((option) => !option.disabled);
+    if (next) $('project').value = next.value;
+  }
 }
 
 function renderTree() {
@@ -320,10 +371,11 @@ async function build() {
 
 async function buildInBrowser() {
   const [target, project] = [$('target').value, $('project').value];
+  const selected = projectInfo();
   showTerm('build');
   $('term-build').textContent = '';
-  if (project !== 'doom') {
-    line('build', 'The browser toolchain currently builds the H743 DOOM firmware. Blinky remains available as the prebuilt image.', 'warn');
+  if (!selected || !selected.targets.includes(target)) {
+    line('build', 'Select an example supported by the current board.', 'warn');
     return;
   }
   $('btn-build').disabled = true;
@@ -338,6 +390,8 @@ async function buildInBrowser() {
     };
     line('build', 'Loading pinned ARM compiler and runtime (~98 MB, cached by browser)…', 'dim');
     const result = await browserH743Build({
+      project,
+      projectConfig: selected,
       files: state.files,
       source,
       onLog: (message) => {
@@ -348,7 +402,8 @@ async function buildInBrowser() {
     result.source = 'browser WebAssembly Clang build';
     state.builds[`${target}-${project}`] = result;
     const secs = ((performance.now() - started) / 1000).toFixed(1);
-    line('build', `Build succeeded in ${secs}s: firmware.bin ${kb(result.binarySize)}, DOOM zone heap ${kb(result.zone)}`, 'ok');
+    line('build', `Build succeeded in ${secs}s: firmware.bin ${kb(result.binarySize)}` +
+      (project === 'doom' ? `, DOOM zone heap ${kb(result.zone)}` : ''), 'ok');
     renderMemory();
     updateEmulator();
   } catch (error) {
@@ -443,9 +498,10 @@ function updateEmulator() {
   const target = $('target').value;
   const project = $('project').value;
   const b = currentBuild();
+  const example = projectInfo();
   $('btn-run').disabled = false;
   if (project !== 'doom') {
-    overlay('<strong>Blinky has no display</strong><span>It toggles the LED on PC13 and prints to USART1: flash it and open the serial monitor.</span>');
+    overlay(`<strong>${escapeHtml(example?.name || 'Firmware example')}</strong><span>${escapeHtml(example?.description || 'Build and flash this board example to try it.')}</span><span>Build this example, flash the image, then use the serial monitor or connected hardware as described.</span>`);
     $('btn-run').disabled = true;
     $('emu-note').textContent = '';
     return;
@@ -680,12 +736,15 @@ async function flash(method, image) {
 
 // ------------------------------------------------------------ wiring --
 function onSelection() {
+  refreshProjectAvailability();
   renderMemory();
   if (sim.running) sim.stop(), $('btn-stop').disabled = true;
   updateEmulator();
-  const t = $('target').value, p = $('project').value;
-  const main = p === 'doom' ? (t === 'h743' ? 'firmware/targets/h743/dg_stm32.c' : 'firmware/targets/bluepill/dg_bluepill.c')
-    : 'firmware/projects/blinky/main.c';
+  const project = projectInfo();
+  const main = project?.entry || 'firmware/projects/blinky/main.c';
+  $('example-name').textContent = project?.name || 'Firmware example';
+  $('example-description').textContent = project?.description || '';
+  $('example-targets').textContent = project?.targets.map((target) => target.toUpperCase()).join(' · ') || '';
   if (state.files.includes(main)) openFile(main);
 }
 $('target').addEventListener('change', onSelection);
@@ -700,10 +759,24 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 (async () => {
-  await Promise.all([detectServer(), loadManifest()]);
+  await Promise.all([detectServer(), loadManifest(), loadProjectCatalog()]);
   await loadTree();
   line('build', state.server
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
     : 'Static IDE ready: edit sources, build H743 firmware in the browser, and flash with Web Serial or WebUSB. Browser drafts stay on this device.', 'dim');
   onSelection();
 })();
+
+const brightnessInput = $('screen-brightness');
+const brightnessValue = $('screen-brightness-value');
+function setGameBrightness(value) {
+  const percent = Math.max(100, Math.min(175, Number(value) || 140));
+  $('screen').style.filter = `brightness(${percent / 100}) saturate(1.08)`;
+  brightnessInput.value = String(percent);
+  brightnessValue.value = `${percent}%`;
+}
+brightnessInput.addEventListener('input', () => {
+  setGameBrightness(brightnessInput.value);
+  localStorage.setItem('stm32-forge-game-brightness', brightnessInput.value);
+});
+setGameBrightness(localStorage.getItem('stm32-forge-game-brightness') || brightnessInput.value);

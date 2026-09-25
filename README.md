@@ -1,7 +1,7 @@
 # STM32 Forge — DOOM on STM32
 
-A web IDE for STM32 that builds real firmware with `arm-none-eabi-gcc`, shows
-the linker's real memory usage per chip, flashes the board from the browser,
+A modular web IDE for STM32 that builds real firmware in the browser or with
+`arm-none-eabi-gcc`, shows the linker's real memory usage per chip, flashes the board from the browser,
 and runs the actual DOOM engine, both in its emulator panel and on an
 STM32H743.
 
@@ -27,6 +27,15 @@ publishing this site.
 
 **Play**: Run starts directly in E1M1. Click the game screen, then use the
 arrow keys or WASD to move, Ctrl or F to fire, Space to use, and Shift to run.
+The Game brightness slider brightens the emulator screen and remembers its
+setting in this browser.
+
+**Firmware examples**: choose an example from the grouped selector. Each project
+has its own `firmware/projects/<example>/main.c` entry point and can be built and
+flashed independently. The catalog at `firmware/projects/catalog.json` supplies
+the menu description, category, board support, and editor entry file. Included
+examples cover DOOM, LED blinking, button input, UART echo, timer-driven status,
+and an ILI9341 color cycle.
 
 **Rebuild and flash H743 changes**: edit firmware or engine sources in the IDE,
 press **Build**, then select the resulting image in **Flash…**. The build uses
@@ -59,7 +68,8 @@ or Edge.
 - **Builds**: the static IDE runs pinned WebAssembly Clang/LLD locally in the
   browser, compiles source files plus unsaved editor buffers, links with
   `firmware/targets/h743/h743.ld`, enforces the zone-heap limit, and produces
-  the `.bin` image in browser memory. The optional local Node server uses native Arm
+  the `.bin` image in browser memory. All H743 examples in the catalog can be
+  built directly in the browser. The optional local Node server uses native Arm
   GCC.
 - **Memory budget**: the emulator runs DOOM with its heap split into the
   same banks, at the same sizes, as the H743 firmware link. On the Blue Pill

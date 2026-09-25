@@ -554,7 +554,7 @@ class DoomSim {
 
 // ---- ide/browser-build.js
 // Build the H743 firmware in the browser with a pinned WebAssembly Clang/LLD.
-// Compiler assets are lazy-loaded from jsDelivr and cached by the browser.
+// Compiler assets are lazy-loaded from unpkg and cached by the browser.
 const TOOLCHAIN = 'https://unpkg.com/microbit-clang-wasm@21.11.0-alpha.1/gen/bundle.js';
 const ENGINE = 'engine/doomgeneric/';
 const HAL_DIR = 'firmware/third_party/stm32h7xx_hal/Src/';
@@ -564,17 +564,25 @@ const HAL_SOURCES = [
   'hal_spi.c','hal_spi_ex.c','hal_uart.c','hal_uart_ex.c','hal_dma.c',
   'hal_dma_ex.c','hal_mdma.c','hal_flash.c','hal_flash_ex.c',
 ].map((name) => `${HAL_DIR}stm32h7xx_${name}`);
-const FIXED_SOURCES = [
+const BOARD_SOURCES = [
   ...HAL_SOURCES,
   'firmware/targets/h743/board.c',
   'firmware/targets/h743/syscalls.c',
+  'firmware/third_party/cmsis/device_h7/system_stm32h7xx.c',
+  'firmware/third_party/cmsis/device_h7/startup_stm32h743xx.s',
+];
+const DOOM_SOURCES = [
   'firmware/targets/h743/dg_stm32.c',
   'firmware/targets/h743/lcd_ili9341.c',
   'firmware/targets/h743/sd_diskio.c',
   'firmware/targets/h743/syscalls_fatfs.c',
-  'firmware/third_party/cmsis/device_h7/system_stm32h7xx.c',
   'firmware/third_party/fatfs/ff.c',
   'firmware/third_party/fatfs/ffunicode.c',
+];
+const COMMON_DEFINES = ['-DSTM32H743xx','-DUSE_HAL_DRIVER'];
+const DOOM_DEFINES = [
+  '-DCMAP256','-DDG_NO_SCREENBUFFER','-DDG_ZONE_PROVIDER','-DDG_NO_WIPE',
+  '-DDG_ZONE_STATIC_TOP','-DDG_STATES_IN_FLASH','-DDOOMGENERIC_RESX=320','-DDOOMGENERIC_RESY=200',
 ];
 const INCLUDES = [
   'firmware/targets/h743', 'firmware/third_party/cmsis/core',
@@ -582,11 +590,6 @@ const INCLUDES = [
   'firmware/third_party/fatfs', ENGINE.slice(0, -1),
 ].map((path) => `-I/src/${path}`);
 const CPU = ['-mcpu=cortex-m4','-mthumb','-mfpu=fpv4-sp-d16','-mfloat-abi=softfp'];
-const DEFINES = [
-  '-DSTM32H743xx','-DUSE_HAL_DRIVER','-DCMAP256','-DDG_NO_SCREENBUFFER',
-  '-DDG_ZONE_PROVIDER','-DDG_NO_WIPE','-DDG_ZONE_STATIC_TOP','-DDG_STATES_IN_FLASH',
-  '-DDOOMGENERIC_RESX=320','-DDOOMGENERIC_RESY=200',
-];
 let compilerSessionPromise;
 
 function binFromElf(elf) {
@@ -638,16 +641,18 @@ function symbolFromElf(elf, target) {
   return 0;
 }
 
-async function browserH743Build({ files, source, onLog, toolchainURL = TOOLCHAIN }) {
+async function browserH743Build({ project = 'doom', projectConfig, files, source, onLog, toolchainURL = TOOLCHAIN }) {
+  if (!/^[a-z0-9-]+$/.test(project)) throw new Error(`Invalid example ID: ${project}`);
+  const doom = project === 'doom';
   const log = (message) => onLog?.(message);
   compilerSessionPromise ||= import(toolchainURL).then((toolchain) => toolchain.createSession());
   const session = await compilerSessionPromise;
   const output = (bytes) => { if (bytes) log(new TextDecoder().decode(bytes).trimEnd()); };
   const headers = files.filter((f) => /\.(h|inc|ld)$/.test(f));
   const paths = [...new Set([
-    ...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')),
-    ...FIXED_SOURCES,
-    'firmware/third_party/cmsis/device_h7/startup_stm32h743xx.s',
+    ...BOARD_SOURCES,
+    ...(doom ? [...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')), ...DOOM_SOURCES]
+      : [`firmware/projects/${project}/main.c`, ...(projectConfig?.sources || [])]),
   ])];
   log(`Preparing ${paths.length} C/assembly units and current editor buffers…`);
   await Promise.all([...new Set([...paths, ...headers])].map(async (path) => {
@@ -660,9 +665,9 @@ async function browserH743Build({ files, source, onLog, toolchainURL = TOOLCHAIN
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i], engine = path.startsWith(ENGINE);
     const object = `/out/${path.replaceAll('/', '_').replace(/\.(c|s)$/, '')}.o`;
-    const args = ['clang', ...CPU, '--sysroot=/usr', '-O2', '-DSTM32H743xx', '-DUSE_HAL_DRIVER',
+    const args = ['clang', ...CPU, '--sysroot=/usr', '-O2', ...COMMON_DEFINES,
       ...INCLUDES, '-ffunction-sections', '-fdata-sections', '-fno-common',
-      ...(engine ? [...DEFINES.slice(2), '-std=gnu99', '-w'] : [...DEFINES, '-std=gnu11', '-Wall']),
+      ...(engine ? [...DOOM_DEFINES, '-std=gnu99', '-w'] : [...(doom ? DOOM_DEFINES : []), '-std=gnu11', '-Wall']),
       ...(path.endsWith('.s') ? ['-x','assembler-with-cpp'] : []), '-c', `/src/${path}`, '-o', object];
     const code = await session.clang(args, { stdout: output, stderr: output });
     if (code !== 0) throw new Error(`Compile failed: ${path}`);
@@ -681,8 +686,10 @@ async function browserH743Build({ files, source, onLog, toolchainURL = TOOLCHAIN
   const elf = await session.readFile('/out/firmware.elf');
   const binary = binFromElf(elf);
   const symbol = (name) => symbolFromElf(elf, name);
-  const zoneBanks = [['__zone0_start','__zone0_end'],['__zone1_start','__zone1_end'],['__zone2_start','__zone2_end']]
-    .map(([a, b]) => symbol(b) - symbol(a));
+  const zoneBanks = doom
+    ? [['__zone0_start','__zone0_end'],['__zone1_start','__zone1_end'],['__zone2_start','__zone2_end']]
+      .map(([a, b]) => symbol(b) - symbol(a))
+    : [];
   return {
     ok: true, binary: (() => {
       let encoded = '';
@@ -716,6 +723,8 @@ const state = {
   manifest: null,
   builds: {},          // "target-project" -> build result (from server or manifest)
   files: [],
+  projects: [],
+  projectGroups: [],
   open: new Map(),     // path -> { doc, saved }
   active: null,
   port: null,          // Web Serial port shared by console and UART flashing
@@ -809,6 +818,55 @@ async function loadTree() {
     }
   }
   renderTree();
+}
+
+async function loadProjectCatalog() {
+  let groups = [];
+  const fallback = [
+    { id: 'doom', name: 'DOOM', group: 'games', description: 'Playable DOOM on the H743.', entry: 'firmware/targets/h743/dg_stm32.c', targets: ['h743'], emulator: true },
+    { id: 'blinky', name: 'Blinky', group: 'basics', description: 'Blink PC13 and report over USART1.', entry: 'firmware/projects/blinky/main.c', targets: ['h743', 'bluepill'] },
+  ];
+  try {
+    const response = await fetch('firmware/projects/catalog.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('catalog unavailable');
+    const catalog = await response.json();
+    state.projects = catalog.projects;
+    groups = catalog.groups;
+  } catch {
+    state.projects = fallback;
+    groups = [{ id: 'games', name: 'Games' }, { id: 'basics', name: 'Getting started' }];
+  }
+  state.projectGroups = groups;
+  const select = $('project');
+  select.textContent = '';
+  for (const group of new Set(state.projects.map((project) => project.group))) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = groups.find((item) => item.id === group)?.name || group;
+    for (const project of state.projects.filter((item) => item.group === group)) {
+      const option = document.createElement('option');
+      option.value = project.id;
+      option.textContent = project.name;
+      option.dataset.targets = project.targets.join(',');
+      optgroup.appendChild(option);
+    }
+    select.appendChild(optgroup);
+  }
+  refreshProjectAvailability();
+}
+
+function projectInfo() {
+  return state.projects.find((project) => project.id === $('project').value) || state.projects[0];
+}
+
+function refreshProjectAvailability() {
+  const target = $('target').value;
+  for (const option of $('project').options) {
+    option.disabled = !option.dataset.targets.split(',').includes(target);
+  }
+  if ($('project').selectedOptions[0]?.disabled) {
+    const next = [...$('project').options].find((option) => !option.disabled);
+    if (next) $('project').value = next.value;
+  }
 }
 
 function renderTree() {
@@ -1020,10 +1078,11 @@ async function build() {
 
 async function buildInBrowser() {
   const [target, project] = [$('target').value, $('project').value];
+  const selected = projectInfo();
   showTerm('build');
   $('term-build').textContent = '';
-  if (project !== 'doom') {
-    line('build', 'The browser toolchain currently builds the H743 DOOM firmware. Blinky remains available as the prebuilt image.', 'warn');
+  if (!selected || !selected.targets.includes(target)) {
+    line('build', 'Select an example supported by the current board.', 'warn');
     return;
   }
   $('btn-build').disabled = true;
@@ -1038,6 +1097,8 @@ async function buildInBrowser() {
     };
     line('build', 'Loading pinned ARM compiler and runtime (~98 MB, cached by browser)…', 'dim');
     const result = await browserH743Build({
+      project,
+      projectConfig: selected,
       files: state.files,
       source,
       onLog: (message) => {
@@ -1048,7 +1109,8 @@ async function buildInBrowser() {
     result.source = 'browser WebAssembly Clang build';
     state.builds[`${target}-${project}`] = result;
     const secs = ((performance.now() - started) / 1000).toFixed(1);
-    line('build', `Build succeeded in ${secs}s: firmware.bin ${kb(result.binarySize)}, DOOM zone heap ${kb(result.zone)}`, 'ok');
+    line('build', `Build succeeded in ${secs}s: firmware.bin ${kb(result.binarySize)}` +
+      (project === 'doom' ? `, DOOM zone heap ${kb(result.zone)}` : ''), 'ok');
     renderMemory();
     updateEmulator();
   } catch (error) {
@@ -1143,9 +1205,10 @@ function updateEmulator() {
   const target = $('target').value;
   const project = $('project').value;
   const b = currentBuild();
+  const example = projectInfo();
   $('btn-run').disabled = false;
   if (project !== 'doom') {
-    overlay('<strong>Blinky has no display</strong><span>It toggles the LED on PC13 and prints to USART1: flash it and open the serial monitor.</span>');
+    overlay(`<strong>${escapeHtml(example?.name || 'Firmware example')}</strong><span>${escapeHtml(example?.description || 'Build and flash this board example to try it.')}</span><span>Build this example, flash the image, then use the serial monitor or connected hardware as described.</span>`);
     $('btn-run').disabled = true;
     $('emu-note').textContent = '';
     return;
@@ -1380,12 +1443,15 @@ async function flash(method, image) {
 
 // ------------------------------------------------------------ wiring --
 function onSelection() {
+  refreshProjectAvailability();
   renderMemory();
   if (sim.running) sim.stop(), $('btn-stop').disabled = true;
   updateEmulator();
-  const t = $('target').value, p = $('project').value;
-  const main = p === 'doom' ? (t === 'h743' ? 'firmware/targets/h743/dg_stm32.c' : 'firmware/targets/bluepill/dg_bluepill.c')
-    : 'firmware/projects/blinky/main.c';
+  const project = projectInfo();
+  const main = project?.entry || 'firmware/projects/blinky/main.c';
+  $('example-name').textContent = project?.name || 'Firmware example';
+  $('example-description').textContent = project?.description || '';
+  $('example-targets').textContent = project?.targets.map((target) => target.toUpperCase()).join(' · ') || '';
   if (state.files.includes(main)) openFile(main);
 }
 $('target').addEventListener('change', onSelection);
@@ -1400,12 +1466,26 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 (async () => {
-  await Promise.all([detectServer(), loadManifest()]);
+  await Promise.all([detectServer(), loadManifest(), loadProjectCatalog()]);
   await loadTree();
   line('build', state.server
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
     : 'Static IDE ready: edit sources, build H743 firmware in the browser, and flash with Web Serial or WebUSB. Browser drafts stay on this device.', 'dim');
   onSelection();
 })();
+
+const brightnessInput = $('screen-brightness');
+const brightnessValue = $('screen-brightness-value');
+function setGameBrightness(value) {
+  const percent = Math.max(100, Math.min(175, Number(value) || 140));
+  $('screen').style.filter = `brightness(${percent / 100}) saturate(1.08)`;
+  brightnessInput.value = String(percent);
+  brightnessValue.value = `${percent}%`;
+}
+brightnessInput.addEventListener('input', () => {
+  setGameBrightness(brightnessInput.value);
+  localStorage.setItem('stm32-forge-game-brightness', brightnessInput.value);
+});
+setGameBrightness(localStorage.getItem('stm32-forge-game-brightness') || brightnessInput.value);
 
 })();

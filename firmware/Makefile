@@ -73,7 +73,21 @@ else ifeq ($(PROJECT),blinky)
 APP_SRCS  := $(FW)/projects/blinky/main.c
 ENG_SRCS  :=
 else
-$(error Unknown PROJECT '$(PROJECT)' (use doom or blinky))
+ifeq ($(TARGET),h743)
+PROJECT_MAIN := $(FW)/projects/$(PROJECT)/main.c
+ifeq ($(wildcard $(PROJECT_MAIN)),)
+$(error Unknown H743 example '$(PROJECT)' (see firmware/projects/catalog.json))
+endif
+PROJECT_EXTRA_SRCS :=
+PROJECT_MK := $(FW)/projects/$(PROJECT)/project.mk
+ifneq ($(wildcard $(PROJECT_MK)),)
+include $(PROJECT_MK)
+endif
+APP_SRCS := $(PROJECT_MAIN) $(PROJECT_EXTRA_SRCS)
+ENG_SRCS :=
+else
+$(error Example '$(PROJECT)' is only available for TARGET=h743)
+endif
 endif
 
 CFLAGS  := $(CPU) $(OPT) $(DEFS) $(INCS) -std=gnu11 -Wall \

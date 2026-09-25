@@ -1,5 +1,5 @@
 // Build the H743 firmware in the browser with a pinned WebAssembly Clang/LLD.
-// Compiler assets are lazy-loaded from jsDelivr and cached by the browser.
+// Compiler assets are lazy-loaded from unpkg and cached by the browser.
 const TOOLCHAIN = 'https://unpkg.com/microbit-clang-wasm@21.11.0-alpha.1/gen/bundle.js';
 const ENGINE = 'engine/doomgeneric/';
 const HAL_DIR = 'firmware/third_party/stm32h7xx_hal/Src/';
@@ -9,17 +9,25 @@ const HAL_SOURCES = [
   'hal_spi.c','hal_spi_ex.c','hal_uart.c','hal_uart_ex.c','hal_dma.c',
   'hal_dma_ex.c','hal_mdma.c','hal_flash.c','hal_flash_ex.c',
 ].map((name) => `${HAL_DIR}stm32h7xx_${name}`);
-const FIXED_SOURCES = [
+const BOARD_SOURCES = [
   ...HAL_SOURCES,
   'firmware/targets/h743/board.c',
   'firmware/targets/h743/syscalls.c',
+  'firmware/third_party/cmsis/device_h7/system_stm32h7xx.c',
+  'firmware/third_party/cmsis/device_h7/startup_stm32h743xx.s',
+];
+const DOOM_SOURCES = [
   'firmware/targets/h743/dg_stm32.c',
   'firmware/targets/h743/lcd_ili9341.c',
   'firmware/targets/h743/sd_diskio.c',
   'firmware/targets/h743/syscalls_fatfs.c',
-  'firmware/third_party/cmsis/device_h7/system_stm32h7xx.c',
   'firmware/third_party/fatfs/ff.c',
   'firmware/third_party/fatfs/ffunicode.c',
+];
+const COMMON_DEFINES = ['-DSTM32H743xx','-DUSE_HAL_DRIVER'];
+const DOOM_DEFINES = [
+  '-DCMAP256','-DDG_NO_SCREENBUFFER','-DDG_ZONE_PROVIDER','-DDG_NO_WIPE',
+  '-DDG_ZONE_STATIC_TOP','-DDG_STATES_IN_FLASH','-DDOOMGENERIC_RESX=320','-DDOOMGENERIC_RESY=200',
 ];
 const INCLUDES = [
   'firmware/targets/h743', 'firmware/third_party/cmsis/core',
@@ -27,11 +35,6 @@ const INCLUDES = [
   'firmware/third_party/fatfs', ENGINE.slice(0, -1),
 ].map((path) => `-I/src/${path}`);
 const CPU = ['-mcpu=cortex-m4','-mthumb','-mfpu=fpv4-sp-d16','-mfloat-abi=softfp'];
-const DEFINES = [
-  '-DSTM32H743xx','-DUSE_HAL_DRIVER','-DCMAP256','-DDG_NO_SCREENBUFFER',
-  '-DDG_ZONE_PROVIDER','-DDG_NO_WIPE','-DDG_ZONE_STATIC_TOP','-DDG_STATES_IN_FLASH',
-  '-DDOOMGENERIC_RESX=320','-DDOOMGENERIC_RESY=200',
-];
 let compilerSessionPromise;
 
 function binFromElf(elf) {
@@ -83,16 +86,18 @@ function symbolFromElf(elf, target) {
   return 0;
 }
 
-export async function browserH743Build({ files, source, onLog, toolchainURL = TOOLCHAIN }) {
+export async function browserH743Build({ project = 'doom', projectConfig, files, source, onLog, toolchainURL = TOOLCHAIN }) {
+  if (!/^[a-z0-9-]+$/.test(project)) throw new Error(`Invalid example ID: ${project}`);
+  const doom = project === 'doom';
   const log = (message) => onLog?.(message);
   compilerSessionPromise ||= import(toolchainURL).then((toolchain) => toolchain.createSession());
   const session = await compilerSessionPromise;
   const output = (bytes) => { if (bytes) log(new TextDecoder().decode(bytes).trimEnd()); };
   const headers = files.filter((f) => /\.(h|inc|ld)$/.test(f));
   const paths = [...new Set([
-    ...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')),
-    ...FIXED_SOURCES,
-    'firmware/third_party/cmsis/device_h7/startup_stm32h743xx.s',
+    ...BOARD_SOURCES,
+    ...(doom ? [...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')), ...DOOM_SOURCES]
+      : [`firmware/projects/${project}/main.c`, ...(projectConfig?.sources || [])]),
   ])];
   log(`Preparing ${paths.length} C/assembly units and current editor buffers…`);
   await Promise.all([...new Set([...paths, ...headers])].map(async (path) => {
@@ -105,9 +110,9 @@ export async function browserH743Build({ files, source, onLog, toolchainURL = TO
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i], engine = path.startsWith(ENGINE);
     const object = `/out/${path.replaceAll('/', '_').replace(/\.(c|s)$/, '')}.o`;
-    const args = ['clang', ...CPU, '--sysroot=/usr', '-O2', '-DSTM32H743xx', '-DUSE_HAL_DRIVER',
+    const args = ['clang', ...CPU, '--sysroot=/usr', '-O2', ...COMMON_DEFINES,
       ...INCLUDES, '-ffunction-sections', '-fdata-sections', '-fno-common',
-      ...(engine ? [...DEFINES.slice(2), '-std=gnu99', '-w'] : [...DEFINES, '-std=gnu11', '-Wall']),
+      ...(engine ? [...DOOM_DEFINES, '-std=gnu99', '-w'] : [...(doom ? DOOM_DEFINES : []), '-std=gnu11', '-Wall']),
       ...(path.endsWith('.s') ? ['-x','assembler-with-cpp'] : []), '-c', `/src/${path}`, '-o', object];
     const code = await session.clang(args, { stdout: output, stderr: output });
     if (code !== 0) throw new Error(`Compile failed: ${path}`);
@@ -126,8 +131,10 @@ export async function browserH743Build({ files, source, onLog, toolchainURL = TO
   const elf = await session.readFile('/out/firmware.elf');
   const binary = binFromElf(elf);
   const symbol = (name) => symbolFromElf(elf, name);
-  const zoneBanks = [['__zone0_start','__zone0_end'],['__zone1_start','__zone1_end'],['__zone2_start','__zone2_end']]
-    .map(([a, b]) => symbol(b) - symbol(a));
+  const zoneBanks = doom
+    ? [['__zone0_start','__zone0_end'],['__zone1_start','__zone1_end'],['__zone2_start','__zone2_end']]
+      .map(([a, b]) => symbol(b) - symbol(a))
+    : [];
   return {
     ok: true, binary: (() => {
       let encoded = '';
