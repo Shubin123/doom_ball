@@ -1,6 +1,7 @@
-// Build the H743 firmware in the browser with a pinned WebAssembly Clang/LLD.
-// Compiler assets are lazy-loaded from unpkg and cached by the browser.
-const TOOLCHAIN = 'https://unpkg.com/microbit-clang-wasm@21.11.0-alpha.1/gen/bundle.js';
+// Build H743 or Nucleo-F401RE firmware in the browser with a pinned WebAssembly Clang/LLD.
+// The compiler (microbit-clang-wasm 21.11.0-alpha.1) is vendored in vendor/clang-wasm and
+// lazy-loaded from this site on the first build; the browser caches it.
+const TOOLCHAIN = 'vendor/clang-wasm/bundle.js';
 const ENGINE = 'engine/doomgeneric/';
 const HAL_DIR = 'firmware/third_party/stm32h7xx_hal/Src/';
 const HAL_SOURCES = [
@@ -24,6 +25,12 @@ const DOOM_SOURCES = [
   'firmware/third_party/fatfs/ff.c',
   'firmware/third_party/fatfs/ffunicode.c',
 ];
+const F401_SOURCES = [
+  'firmware/targets/f401/board.c',
+  'firmware/targets/f401/syscalls.c',
+  'firmware/third_party/cmsis/device_f4/system_stm32f4xx.c',
+  'firmware/third_party/cmsis/device_f4/startup_stm32f401xe.s',
+];
 const COMMON_DEFINES = ['-DSTM32H743xx','-DUSE_HAL_DRIVER'];
 const DOOM_DEFINES = [
   '-DCMAP256','-DDG_NO_SCREENBUFFER','-DDG_ZONE_PROVIDER','-DDG_NO_WIPE',
@@ -34,6 +41,15 @@ const INCLUDES = [
   'firmware/third_party/cmsis/device_h7', 'firmware/third_party/stm32h7xx_hal/Inc',
   'firmware/third_party/fatfs', ENGINE.slice(0, -1),
 ].map((path) => `-I/src/${path}`);
+// Per-board sources, flags, linker script and the flash window of the image.
+export const BROWSER_TARGETS = {
+  h743: { name: 'H743', sources: BOARD_SOURCES, defines: COMMON_DEFINES, includes: INCLUDES,
+    ld: 'firmware/targets/h743/h743.ld', flashEnd: 0x08200000, doom: true },
+  f401: { name: 'Nucleo-F401RE', sources: F401_SOURCES, defines: ['-DSTM32F401xE'],
+    includes: ['firmware/targets/f401', 'firmware/third_party/cmsis/core', 'firmware/third_party/cmsis/device_f4']
+      .map((path) => `-I/src/${path}`),
+    ld: 'firmware/targets/f401/f401.ld', flashEnd: 0x08080000, doom: false },
+};
 const CPU = ['-mcpu=cortex-m4','-mthumb','-mfpu=fpv4-sp-d16','-mfloat-abi=softfp'];
 const FREERTOS_SOURCES = [
   'firmware/third_party/freertos/tasks.c', 'firmware/third_party/freertos/list.c',
@@ -42,13 +58,13 @@ const FREERTOS_SOURCES = [
 ];
 let compilerSessionPromise;
 
-function binFromElf(elf) {
+function binFromElf(elf, flashEnd) {
   const view = new DataView(elf.buffer, elf.byteOffset, elf.byteLength);
   if (elf[0] !== 0x7f || elf[1] !== 0x45 || elf[2] !== 0x4c || elf[3] !== 0x46 || elf[4] !== 1) {
     throw new Error('Compiler output is not a 32-bit ELF image');
   }
   const phoff = view.getUint32(28, true), phentsize = view.getUint16(42, true), phnum = view.getUint16(44, true);
-  const flashStart = 0x08000000, flashEnd = 0x08200000, segments = [];
+  const flashStart = 0x08000000, segments = [];
   for (let i = 0; i < phnum; i++) {
     const p = phoff + i * phentsize;
     if (view.getUint32(p, true) !== 1) continue; // PT_LOAD
@@ -91,21 +107,25 @@ function symbolFromElf(elf, target) {
   return 0;
 }
 
-export async function browserH743Build({ project = 'doom', projectConfig, files, source, onLog, toolchainURL = TOOLCHAIN }) {
+export async function browserBuild({ target = 'h743', project = 'doom', projectConfig, files, source, onLog, toolchainURL = TOOLCHAIN }) {
   if (!/^[a-z0-9-]+$/.test(project)) throw new Error(`Invalid example ID: ${project}`);
+  const board = BROWSER_TARGETS[target];
+  if (!board) throw new Error(`Browser builds support ${Object.values(BROWSER_TARGETS).map((b) => b.name).join(' and ')}`);
   const doom = project === 'doom';
+  if (doom && !board.doom) throw new Error(`DOOM does not fit on the ${board.name}; select the H743`);
   const freertos = project === 'freertos';
+  if (freertos && target !== 'h743') throw new Error('The FreeRTOS example targets the H743');
   const cpu = freertos ? ['-mcpu=cortex-m7','-mthumb','-mfpu=fpv5-d16','-mfloat-abi=hard'] : CPU;
-  const includes = freertos ? [...INCLUDES,
+  const includes = freertos ? [...board.includes,
     '-I/src/firmware/projects/freertos', '-I/src/firmware/third_party/freertos/include',
-    '-I/src/firmware/third_party/freertos/portable/GCC/ARM_CM7/r0p1'] : INCLUDES;
+    '-I/src/firmware/third_party/freertos/portable/GCC/ARM_CM7/r0p1'] : board.includes;
   const log = (message) => onLog?.(message);
-  compilerSessionPromise ||= import(toolchainURL).then((toolchain) => toolchain.createSession());
+  compilerSessionPromise ||= import(new URL(toolchainURL, document.baseURI).href).then((toolchain) => toolchain.createSession());
   const session = await compilerSessionPromise;
   const output = (bytes) => { if (bytes) log(new TextDecoder().decode(bytes).trimEnd()); };
   const headers = files.filter((f) => /\.(h|inc|ld)$/.test(f));
   const paths = [...new Set([
-    ...BOARD_SOURCES,
+    ...board.sources,
     ...(doom ? [...files.filter((f) => f.startsWith(ENGINE) && f.endsWith('.c')), ...DOOM_SOURCES]
       : [`firmware/projects/${project}/main.c`, ...(freertos ? FREERTOS_SOURCES : []), ...(projectConfig?.sources || [])]),
   ])];
@@ -120,7 +140,7 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i], engine = path.startsWith(ENGINE);
     const object = `/out/${path.replaceAll('/', '_').replace(/\.(c|s)$/, '')}.o`;
-    const args = ['clang', ...cpu, '--sysroot=/usr', '-O2', ...COMMON_DEFINES,
+    const args = ['clang', ...cpu, '--sysroot=/usr', '-O2', ...board.defines,
       ...includes, '-ffunction-sections', '-fdata-sections', '-fno-common',
       ...(engine ? [...DOOM_DEFINES, '-std=gnu99', '-w'] : [...(doom ? DOOM_DEFINES : []), '-std=gnu11', '-Wall']),
       ...(path.endsWith('.s') ? ['-x','assembler-with-cpp'] : []), '-c', `/src/${path}`, '-o', object];
@@ -131,15 +151,15 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
   }
   const linkLog = [];
   const link = await session.clang(['clang', ...cpu, '--sysroot=/usr', '-nostartfiles',
-    '-T/src/firmware/targets/h743/h743.ld', '-Wl,--gc-sections', '-Wl,-Map=/out/firmware.map',
+    `-T/src/${board.ld}`, '-Wl,--gc-sections', '-Wl,-Map=/out/firmware.map',
     '-Wl,--print-memory-usage', ...objects, '-lm', '-o', '/out/firmware.elf'], {
     stdout: (b) => { if (b) linkLog.push(new TextDecoder().decode(b)); },
     stderr: (b) => { if (b) linkLog.push(new TextDecoder().decode(b)); },
   });
   linkLog.join('').split('\n').filter(Boolean).forEach(log);
-  if (link !== 0) throw new Error('H743 link failed. Review the compiler and linker output above.');
+  if (link !== 0) throw new Error(`${board.name} link failed. Review the compiler and linker output above.`);
   const elf = await session.readFile('/out/firmware.elf');
-  const binary = binFromElf(elf);
+  const binary = binFromElf(elf, board.flashEnd);
   const symbol = (name) => symbolFromElf(elf, name);
   const zoneBanks = doom
     ? [['__zone0_start','__zone0_end'],['__zone1_start','__zone1_end'],['__zone2_start','__zone2_end']]
@@ -152,7 +172,7 @@ export async function browserH743Build({ project = 'doom', projectConfig, files,
       return btoa(encoded);
     })(), binarySize: binary.length,
     source: 'browser WebAssembly Clang build', zone: zoneBanks.reduce((a, b) => a + b, 0), zoneBanks,
-    memory: [...linkLog.join('').matchAll(/^\s*(ITCM|FLASH|DTCM|AXI|SRAM123|SRAM4):\s*(\d+)\s*(B|KB|MB|GB)\s+(\d+)\s*(B|KB|MB|GB)\s+([\d.]+)%\s*$/gm)]
+    memory: [...linkLog.join('').matchAll(/^\s*(ITCM|FLASH|DTCM|AXI|SRAM123|SRAM4|RAM):\s*(\d+)\s*(B|KB|MB|GB)\s+(\d+)\s*(B|KB|MB|GB)\s+([\d.]+)%\s*$/gm)]
       .map((m) => {
         const bytes = (amount, unit) => Number(amount) * ({ B: 1, KB: 1024, MB: 1048576, GB: 1073741824 }[unit]);
         const used = bytes(m[2], m[3]), size = bytes(m[4], m[5]);

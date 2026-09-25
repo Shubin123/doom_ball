@@ -9,17 +9,20 @@ STM32H743.
 | --- | --- | --- | --- | --- |
 | STM32H743IITx | Cortex-M7, 400 MHz | 2 MB | 1 MB | runs (707 KB zone heap) |
 | STM32F103C8T6 (Blue Pill) | Cortex-M3, 72 MHz | 64 KB | 20 KB | does not fit: the linker reports flash 467 % and RAM 4872 % |
+| STM32F401RE (Nucleo-F401RE) | Cortex-M4, 84 MHz | 512 KB | 96 KB | does not fit (96 KB of RAM); Blinky, flashed instantly over USB |
 
 ## Online demo and local IDE
 
 GitHub Pages serves the complete static demo: the DOOM WebAssembly game, editable
-source browser, browser-side H743 compiler, linker reports, and prebuilt firmware.
-Source edits autosave as drafts in the current browser. A floating change notice
-lists modified sample files and can restore them to their original contents. The
-Build button compiles those drafts in the browser using a pinned WebAssembly ARM toolchain; no server or
-workflow runs. The first build downloads about 98 MB of compiler assets from
-unpkg, which the browser caches. Flashing and serial use Web Serial/WebUSB in
-Chrome or Edge on HTTPS.
+source browser, browser-side H743 and Nucleo-F401RE compiler, linker reports,
+prebuilt firmware, and instant flashing. The site is self-contained: the compiler,
+editor and fonts are vendored under `vendor/` (see `vendor/README.md`), so it
+loads nothing from other hosts. Source edits autosave as drafts in the current
+browser. A floating change notice lists modified sample files and can restore them
+to their original contents. The Build button compiles those drafts in the browser
+using the pinned WebAssembly ARM toolchain; no server or workflow runs. The first
+build downloads about 98 MB of compiler files from the site, which the browser
+caches. Flashing and serial use WebUSB/Web Serial in Chrome or Edge on HTTPS.
 
 Pages serves the checked-in `main:/docs` folder. After editing the site, run
 `node tools/bundle_ide.mjs && node tools/publish_static.mjs`, then commit the
@@ -74,13 +77,16 @@ or Edge.
 - **Builds**: the static IDE runs pinned WebAssembly Clang/LLD locally in the
   browser, compiles source files plus unsaved editor buffers, links with
   `firmware/targets/h743/h743.ld`, enforces the zone-heap limit, and produces
-  the `.bin` image in browser memory. All H743 examples in the catalog can be
-  built directly in the browser. The optional local Node server uses native Arm
-  GCC.
+  the `.bin` image in browser memory. All H743 examples in the catalog, and
+  Blinky for the Nucleo-F401RE, can be built directly in the browser. The
+  optional local Node server uses native Arm GCC.
 - **Memory budget**: the emulator runs DOOM with its heap split into the
   same banks, at the same sizes, as the H743 firmware link. On the Blue Pill
   budget it fails the same way the real chip would.
-- **Flashing**: the chips' ROM bootloaders.
+- **Flashing**: the Nucleo's on-board ST-Link, or the chips' ROM bootloaders.
+  - Instant flash, over WebUSB to the ST-Link (`ide/flash/stlink.js`): SWD
+    halt, STM32F4 sector erase, programming by a 32-byte routine run from SRAM,
+    read-back verify and reset. Nucleo-F401RE, and other STM32F4 boards.
   - UART bootloader, [AN3155](https://www.st.com/resource/en/application_note/an3155-usart-protocol-used-in-the-stm32-bootloader-stmicroelectronics.pdf),
     over Web Serial: both chips.
   - USB DFU (DfuSe) over WebUSB: STM32H743 only (the F103 ROM has no USB
@@ -147,7 +153,32 @@ LED on PC13 and USART1 on PA9/PA10. The Blinky project (5 KB of flash,
 4.5 KB of RAM) blinks the LED and prints a counter. Building DOOM for it is
 kept as a project so that the linker shows why it can't fit.
 
+## Nucleo-F401RE hardware
+
+Everything goes through the one USB cable to the on-board ST-Link (CN1):
+flashing, and the console on USART2 (PA2/PA3), which the ST-Link presents as
+a USB serial port. LD2 is on PA5, the blue B1 button on PC13. The clock is
+84 MHz from the ST-Link's 8 MHz MCO, or from HSI if that solder bridge is open.
+
 ## Flashing
+
+### Instant flash (Nucleo-F401RE, the default)
+
+Select the **Nucleo-F401RE** target and press **Flash**. The first time, the
+browser asks you to choose "STM32 STLink"; after that it remembers the
+probe, and every flash is one click with no dialog. The IDE halts the core
+over SWD, erases only the sectors the image needs, programs, verifies,
+resets into the new firmware and connects the serial console. It needs no
+BOOT0 jumper and no buttons, and takes under a second for Blinky.
+Firmware that sleeps or reuses the SWD pins is reached by holding NRST low
+while attaching.
+
+If the page has been allowed to use an ST-Link before, the IDE selects the
+Nucleo target when it opens. Close other ST-Link tools (STM32CubeProgrammer,
+st-flash/st-util, OpenOCD) first, since only one program can use the probe
+at a time. The **▾** next to Flash still offers the ROM-bootloader methods.
+
+### ROM bootloaders (H743, Blue Pill)
 
 1. Set BOOT0 high (Blue Pill: jumper BOOT0 = 1) and reset the board.
 2. In the IDE, choose **Flash…**, then either **UART bootloader** or **USB DFU**
@@ -164,11 +195,14 @@ RX → PA9, GND.
 tests/run_all.sh
 ```
 
-- **Firmware builds** for all four target/project combinations. `bluepill/doom`
+- **Firmware builds** for every target/project combination. `bluepill/doom`
   must fail with flash and RAM overflow.
 - **Flashing protocols** (`node --test tests/`): AN3155 and DfuSe program the
-  built images into simulated STM32 ROM bootloaders, and flash contents are
-  compared byte for byte.
+  built images into simulated STM32 ROM bootloaders, and instant flash
+  programs a simulated ST-Link/V2-1 + STM32F401RE (`tests/sim_stlink.mjs`:
+  USB commands, SWD, the F4 flash controller and the SRAM loader). Flash
+  contents are compared byte for byte. With Chrome installed, the IDE test
+  also presses Flash in the real page against that simulator.
 - **DOOM wasm, headless** (`tests/sim_headless.mjs`): demo playback with
   zone integrity checks, including the exact H743 bank layout.
 - **H743 firmware emulator** (`tests/emu/h743_emu.py`): runs the real
@@ -191,7 +225,7 @@ H743). Board-specific parts (pins, LCD, SD socket) may need adjusting in
 
 ```
 index.html, ide/            web IDE (CodeMirror editor, emulator, flashing, serial)
-ide/flash/                  AN3155 (Web Serial) and DfuSe (WebUSB) flashers
+ide/flash/                  ST-Link instant flash and DfuSe (WebUSB), AN3155 (Web Serial)
 server/forge_server.mjs     local IDE/build server (Node.js)
 engine/doomgeneric/         DOOM engine (GPLv2)
 engine/platform/dg_web.c    emulator platform layer
@@ -199,6 +233,7 @@ sim/                        WebAssembly build (sim/build.sh), DOOM1.WAD (+ .js c
 firmware/Makefile           make TARGET=h743|bluepill PROJECT=doom|blinky
 firmware/targets/h743/      H743 board, LCD, SD, syscalls, DOOM platform, linker script
 firmware/targets/bluepill/  Blue Pill board, syscalls, linker script
+firmware/targets/f401/      Nucleo-F401RE board, syscalls, linker script
 firmware/projects/blinky/   blinky for both boards
 firmware/third_party/       CMSIS, STM32H7 HAL subset, FatFs
 firmware/prebuilt/          built images + manifest

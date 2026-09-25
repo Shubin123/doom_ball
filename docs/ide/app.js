@@ -2,13 +2,18 @@
 // DOOM emulator, and flashing / serial console over Web Serial and WebUSB.
 import { An3155, webSerialTransport } from './flash/an3155.js';
 import { DfuSe, DFU_FILTERS } from './flash/dfuse.js';
+import { StLink, STLINK_FILTERS, isStLink } from './flash/stlink.js';
+import { browserBuild, BROWSER_TARGETS } from './browser-build.js';
 import { DoomSim, doomKey, loadScript, fromBase64 } from './doom-sim.js';
 
 const $ = (id) => document.getElementById(id);
 const TARGETS = {
   h743: { name: 'STM32H743IITx', flash: 2048 * 1024, ram: 1024 * 1024, dfu: true },
   bluepill: { name: 'STM32F103C8T6 Blue Pill', flash: 64 * 1024, ram: 20 * 1024, dfu: false },
+  // Nucleo-F401RE: flashed through its on-board ST-Link (instant flash, the default).
+  f401: { name: 'STM32F401RE Nucleo-F401RE', flash: 512 * 1024, ram: 96 * 1024, dfu: false, stlink: [0x433, 0x423] },
 };
+const TARGET_KEY = 'stm32-forge-target';
 const DOOM_MIN_ZONE = 704 * 1024;   // smallest zone that ran every demo (tests/sim_headless.mjs)
 
 const state = {
@@ -22,6 +27,7 @@ const state = {
   active: null,
   port: null,          // Web Serial port shared by console and UART flashing
   console: null,       // { reader, writer } while the console is open
+  flashing: false,
 };
 const DRAFT_KEY = 'stm32-forge-drafts-v1';
 const BASELINE_KEY = 'stm32-forge-baselines-v1';
@@ -123,7 +129,7 @@ async function detectServer() {
     s.title = 'Source edits and firmware builds run in this browser. Flashing uses Web Serial or WebUSB.';
   }
   $('btn-build').disabled = false;
-  $('btn-build').title = state.server ? 'Build (Ctrl+B)' : 'Build H743 firmware in this browser (Ctrl+B)';
+  $('btn-build').title = state.server ? 'Build (Ctrl+B)' : 'Build H743 or Nucleo-F401RE firmware in this browser (Ctrl+B)';
   autosaveStatus(state.server ? 'Autosave writes to checkout' : 'Autosave writes on this device');
 }
 
@@ -515,8 +521,8 @@ async function build() {
   }
   if (!state.server) {
     showTerm('build');
-    if ($('target').value !== 'h743') {
-      line('build', 'Browser firmware builds currently target the STM32H743. Select that board to build here.', 'warn');
+    if (!BROWSER_TARGETS[$('target').value]) {
+      line('build', 'Browser firmware builds support the STM32H743 and the Nucleo-F401RE. Select one of those boards to build here.', 'warn');
       return;
     }
     await buildInBrowser();
@@ -577,8 +583,9 @@ async function buildInBrowser() {
       const response = await fetch(path);
       return response.ok ? response.text() : null;
     };
-    line('build', 'Loading pinned ARM compiler and runtime (~98 MB, cached by browser)…', 'dim');
-    const result = await browserH743Build({
+    line('build', 'Loading the ARM compiler from this site (~98 MB on first build, then cached by the browser)…', 'dim');
+    const result = await browserBuild({
+      target,
       project,
       projectConfig: selected,
       files: state.files,
@@ -785,26 +792,40 @@ $('screen').addEventListener('keyup', (e) => onKey(false, e));
 $('screen').addEventListener('click', () => $('screen').focus());
 
 // ------------------------------------------------------------ serial console --
-async function openConsole() {
+// The ST-Link's USB serial port, if this site was allowed to use it before.
+async function stlinkSerialPort() {
+  if (!('serial' in navigator)) return null;
+  const ports = await navigator.serial.getPorts().catch(() => []);
+  return ports.find((p) => {
+    const info = p.getInfo();
+    return isStLink({ vendorId: info.usbVendorId, productId: info.usbProductId });
+  }) || null;
+}
+
+async function openConsole(port = null, { quiet = false } = {}) {
   if (!('serial' in navigator)) {
     line('serial', 'Web Serial is not available in this browser (use Chrome or Edge).', 'err');
     showTerm('serial');
-    return;
+    return false;
   }
   try {
+    if (port) state.port = port;
+    else if (TARGETS[$('target').value].stlink) state.port = state.port || await stlinkSerialPort();
     state.port = state.port || await navigator.serial.requestPort();
     await state.port.open({ baudRate: 115200 });
   } catch (e) {
-    line('serial', `could not open port: ${e.message}`, 'err');
-    showTerm('serial');
-    return;
+    const busy = /Failed to open serial port/i.test(e.message);
+    line(quiet ? 'flash' : 'serial', `could not open the serial port: ${e.message}` +
+      (busy ? ' Another tab or program (a serial monitor, screen, another IDE window) has it open; close that and connect again.' : ''), 'err');
+    if (!quiet) showTerm('serial');
+    return false;
   }
   const reader = state.port.readable.getReader();
   const writer = state.port.writable.getWriter();
   state.console = { reader, writer };
   $('btn-serial').textContent = 'Disconnect serial';
-  showTerm('serial');
   line('serial', '— connected at 115200 8N1 —', 'ok');
+  if (!quiet) showTerm('serial');
   const dec = new TextDecoder();
   (async () => {
     try {
@@ -817,6 +838,7 @@ async function openConsole() {
       line('serial', `— ${e.message} —`, 'warn');
     }
   })();
+  return true;
 }
 
 async function closeConsole() {
@@ -865,29 +887,50 @@ function progress(phase, done, total) {
   p.firstElementChild.style.width = `${pct.toFixed(1)}%`;
 }
 
-$('btn-flash').addEventListener('click', async () => {
+// The image to flash for the current selection, checked against the board;
+// logs why and returns null when there is nothing flashable.
+async function flashImage() {
   const t = TARGETS[$('target').value];
   const b = currentBuild();
   if (b && b.ok === false) {
     showTerm('flash');
     line('flash', `${combo()} does not fit on the ${t.name}; nothing to flash.`, 'err');
-    return;
+    return null;
   }
   const img = await firmwareImage();
   if (!img) {
     showTerm('flash');
     line('flash', 'No firmware image: build first.', 'err');
-    return;
+    return null;
   }
   if (!img.bytes.length || img.bytes.length > t.flash) {
     showTerm('flash');
     line('flash', `Firmware image is ${kb(img.bytes.length)}; ${t.name} has ${kb(t.flash)} flash.`, 'err');
-    return;
+    return null;
   }
+  return img;
+}
+
+function updateFlashButton() {
+  const instant = !!TARGETS[$('target').value].stlink;
+  $('btn-flash').textContent = instant ? 'Flash' : 'Flash…';
+  $('btn-flash').title = instant
+    ? 'Instant flash over USB through the on-board ST-Link: no BOOT0 jumper, no buttons'
+    : 'Flash through the chip ROM bootloader (UART or USB DFU)';
+}
+
+$('btn-flash').addEventListener('click', () => (TARGETS[$('target').value].stlink ? instantFlash() : openFlashDialog()));
+$('btn-flash-more').addEventListener('click', () => openFlashDialog());
+
+async function openFlashDialog() {
+  const t = TARGETS[$('target').value];
+  const img = await flashImage();
+  if (!img) return;
   $('fd-what').textContent = `${$('project').selectedOptions[0].text} → ${t.name}`;
   $('fd-image').textContent = `${kb(img.bytes.length)} from ${img.from}`;
   $('m-dfu').classList.toggle('disabled', !t.dfu);
-  if (!t.dfu) $('m-uart').querySelector('input').checked = true;
+  $('m-stlink').classList.toggle('disabled', !t.stlink);
+  $(t.stlink ? 'm-stlink' : 'm-uart').querySelector('input').checked = true;
   const support = [];
   if (!('serial' in navigator)) support.push('Web Serial is not available in this browser');
   if (!('usb' in navigator)) support.push('WebUSB is not available in this browser');
@@ -899,7 +942,7 @@ $('btn-flash').addEventListener('click', async () => {
       const method = new FormData($('flash-dialog').querySelector('form')).get('method');
       const file = $('custom-firmware').files[0];
       if (!file) {
-        flash(method, img.bytes);
+        flash(method, img.bytes, img.from);
         return;
       }
       file.arrayBuffer().then((buffer) => {
@@ -909,21 +952,89 @@ $('btn-flash').addEventListener('click', async () => {
           line('flash', `Firmware image is ${kb(bytes.length)}; ${t.name} has ${kb(t.flash)} flash.`, 'err');
           return;
         }
-        flash(method, bytes);
+        flash(method, bytes, file.name);
       }).catch((e) => {
         showTerm('flash');
         line('flash', `Could not read firmware image: ${e.message}`, 'err');
       });
     }
   };
-});
+}
 
 $('custom-firmware').addEventListener('change', () => {
   const file = $('custom-firmware').files[0];
   if (file) $('fd-image').textContent = `${kb(file.size)} from rebuilt image ${file.name}`;
 });
 
-async function flash(method, image) {
+// Instant flash: one click on a Nucleo. The ST-Link halts the core over SWD,
+// so there is no BOOT0 jumper or reset button, and the serial console (the
+// probe's second USB function) keeps running or is connected afterwards.
+async function instantFlash(image = null, from = '') {
+  if (state.flashing) return;
+  const t = TARGETS[$('target').value];
+  showTerm('flash');
+  if (!t.stlink) {
+    line('flash', `Instant flash needs an ST-Link board; the ${t.name} is flashed through its ROM bootloader (▾).`, 'err');
+    return;
+  }
+  if (!('usb' in navigator)) {
+    line('flash', 'Instant flash uses WebUSB, which this browser does not have. Use Chrome or Edge.', 'err');
+    return;
+  }
+  state.flashing = true;
+  $('btn-flash').disabled = true;
+  const t0 = performance.now();
+  let st = null, ok = false;
+  try {
+    // Ask for the probe first, while the click still counts as a user gesture.
+    let dev = (await navigator.usb.getDevices()).find(isStLink);
+    if (!dev) {
+      line('flash', 'Select "STM32 STLink" once; the browser remembers it and later flashes need no dialog.', 'dim');
+      dev = await navigator.usb.requestDevice({ filters: STLINK_FILTERS });
+    }
+    if (!image) {
+      const img = await flashImage();
+      if (!img) return;
+      ({ bytes: image, from } = img);
+    }
+    line('flash', `Instant flash: ${$('project').selectedOptions[0].text} → ${t.name}, ${kb(image.length)} from ${from}`);
+    st = new StLink(dev, (s) => line('flash', s, 'dim'));
+    const info = await st.connect();
+    if (!t.stlink.includes(info.chipId)) {
+      throw new Error(`this board is an ${info.chip}, not the ${t.name}; select the matching target`);
+    }
+    await st.flash(image, { onProgress: progress });
+    ok = true;
+    line('flash', `Flashed, verified and started ${kb(image.length)} in ${((performance.now() - t0) / 1000).toFixed(1)}s.`, 'ok');
+  } catch (e) {
+    line('flash', `Flash failed: ${e.message}`, 'err');
+    if (e.name === 'NotFoundError') {
+      line('flash', 'No ST-Link was chosen. Plug the Nucleo in with a data USB cable (CN1) and press Flash again.', 'dim');
+    } else if (e.name === 'SecurityError' || /access denied|claim|unable to open|busy/i.test(e.message)) {
+      line('flash', 'Another program is using the ST-Link: STM32CubeProgrammer/CubeIDE, st-flash/st-util, OpenOCD or this IDE in another tab. Close it and press Flash again.', 'dim');
+    }
+  } finally {
+    if (st) await st.close();
+    state.flashing = false;
+    $('btn-flash').disabled = false;
+    setTimeout(() => { $('flash-progress').hidden = true; }, 1500);
+  }
+  if (!ok) return;
+  if (state.console) {
+    showTerm('serial');
+    return;
+  }
+  const port = await stlinkSerialPort();
+  if (port && await openConsole(port, { quiet: true })) {
+    line('flash', 'Serial console connected to the ST-Link USB serial port (USART2).', 'ok');
+    showTerm('serial');
+  } else if (!port) {
+    line('flash', 'Press Connect serial and choose the STLink port once to see the board output (115200 8N1).', 'dim');
+  }
+}
+
+async function flash(method, image, from) {
+  if (method === 'stlink') return instantFlash(image, from);
   showTerm('flash');
   const log = (s) => line('flash', s);
   const t0 = performance.now();
@@ -957,6 +1068,8 @@ async function flash(method, image) {
 
 // ------------------------------------------------------------ wiring --
 function onSelection() {
+  try { localStorage.setItem(TARGET_KEY, $('target').value); } catch { /* storage blocked */ }
+  updateFlashButton();
   refreshProjectAvailability();
   renderMemory();
   if (sim.running) sim.stop(), $('btn-stop').disabled = true;
@@ -970,7 +1083,7 @@ function onSelection() {
 }
 $('target').addEventListener('change', () => {
   onSelection();
-  if (!$('.clock-pane').hidden) void clockDiagram.show({ target: $('target').value, readSource: sourceForSimulation });
+  if (!document.querySelector('.clock-pane').hidden) void clockDiagram.show({ target: $('target').value, readSource: sourceForSimulation });
 });
 $('project').addEventListener('change', onSelection);
 document.addEventListener('clockpanechange', (event) => {
@@ -1000,14 +1113,35 @@ window.addEventListener('pagehide', () => {
   catch { /* Keep the already autosaved draft if a final pagehide write exceeds quota. */ }
 });
 
+// Board choice: the last one used here, else the Nucleo when its ST-Link was
+// allowed before. Plugging a known ST-Link in announces instant flash.
+async function restoreTarget() {
+  let saved = null;
+  try { saved = localStorage.getItem(TARGET_KEY); } catch { /* storage blocked */ }
+  if (saved && TARGETS[saved]) {
+    $('target').value = saved;
+  } else if ('usb' in navigator && (await navigator.usb.getDevices().catch(() => [])).some(isStLink)) {
+    $('target').value = 'f401';
+    line('flash', 'ST-Link found: selected the Nucleo-F401RE. Flash programs it over USB in one click.', 'ok');
+  }
+  if ('usb' in navigator) {
+    navigator.usb.addEventListener('connect', (e) => {
+      if (isStLink(e.device)) line('flash', 'ST-Link connected: instant flash ready.', 'ok');
+    });
+    navigator.usb.addEventListener('disconnect', (e) => {
+      if (isStLink(e.device)) line('flash', 'ST-Link disconnected.', 'warn');
+    });
+  }
+}
+
 (async () => {
-  await Promise.all([detectServer(), loadManifest(), loadProjectCatalog()]);
+  await Promise.all([detectServer(), loadManifest(), loadProjectCatalog(), restoreTarget()]);
   await loadTree();
   for (const [path, text] of Object.entries(drafts())) syncModifiedFile(path, text);
   renderModifiedFiles();
   line('build', state.server
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
-    : 'Static IDE ready: edit sources, build H743 firmware in the browser, and flash with Web Serial or WebUSB. Browser drafts stay on this device.', 'dim');
+    : 'Static IDE ready: edit sources, build H743 or Nucleo-F401RE firmware in the browser, and flash over USB. Browser drafts stay on this device.', 'dim');
   onSelection();
 })();
 

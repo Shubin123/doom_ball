@@ -61,7 +61,7 @@
     },
     {
      "region": "FLASH",
-     "used": 13628,
+     "used": 13588,
      "size": 2097152,
      "overflow": 0
     },
@@ -96,7 +96,7 @@
     524288,
     294912
    ],
-   "binarySize": 13628,
+   "binarySize": 13588,
    "errors": []
   },
   "bluepill-doom": {
@@ -130,7 +130,7 @@
    "memory": [
     {
      "region": "FLASH",
-     "used": 5132,
+     "used": 5136,
      "size": 65536,
      "overflow": 0
     },
@@ -143,7 +143,28 @@
    ],
    "zone": null,
    "zoneBanks": null,
-   "binarySize": 5132,
+   "binarySize": 5136,
+   "errors": []
+  },
+  "f401-blinky": {
+   "ok": true,
+   "memory": [
+    {
+     "region": "FLASH",
+     "used": 5508,
+     "size": 524288,
+     "overflow": 0
+    },
+    {
+     "region": "RAM",
+     "used": 8656,
+     "size": 98304,
+     "overflow": 0
+    }
+   ],
+   "zone": null,
+   "zoneBanks": null,
+   "binarySize": 5508,
    "errors": []
   }
  }

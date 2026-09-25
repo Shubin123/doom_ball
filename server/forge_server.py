@@ -8,7 +8,7 @@ Serves the web IDE and gives it a real toolchain:
   GET  /api/tree                   editable source files
   GET  /api/file?path=...          read a file
   PUT  /api/file?path=...          save a file (body = contents)
-  POST /api/build                  {"target": "h743"|"bluepill", "project": "doom"|"blinky"}
+  POST /api/build                  {"target": "h743"|"bluepill"|"f401", "project": "doom"|"blinky"}
                                    -> compiler log, per-region memory usage from
                                       the linker, DOOM zone size, firmware image
 
@@ -39,6 +39,8 @@ TARGETS = {
              'flash': 2048 * 1024, 'ram': 1024 * 1024},
     'bluepill': {'name': 'STM32F103C8T6 (Blue Pill)', 'core': 'Cortex-M3 @ 72 MHz',
                  'flash': 64 * 1024, 'ram': 20 * 1024},
+    'f401': {'name': 'STM32F401RE (Nucleo-F401RE)', 'core': 'Cortex-M4 @ 84 MHz',
+             'flash': 512 * 1024, 'ram': 96 * 1024},
 }
 PROJECTS = ['doom', 'blinky']
 

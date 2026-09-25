@@ -4,6 +4,7 @@
 #   make TARGET=bluepill PROJECT=blinky    LED + UART demo on the Blue Pill
 #   make TARGET=bluepill PROJECT=doom      shows DOOM does not fit (64K/20K)
 #   make TARGET=h743     PROJECT=blinky
+#   make TARGET=f401     PROJECT=blinky    LED + UART demo on the Nucleo-F401RE
 #
 # Output: build/$(TARGET)-$(PROJECT)/firmware.{elf,bin,hex,map}
 # The linker's per-region memory usage is printed at the end of each link.
@@ -57,11 +58,24 @@ BSP_SRCS := $(TP)/cmsis/device_f1/system_stm32f1xx.c \
             $(FW)/targets/bluepill/board.c $(FW)/targets/bluepill/syscalls.c
 ASM_SRCS := $(TP)/cmsis/device_f1/startup_stm32f103xb.s
 DOOM_BSP := $(FW)/targets/bluepill/dg_bluepill.c
+else ifeq ($(TARGET),f401)
+CPU      := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+LDSCRIPT := $(FW)/targets/f401/f401.ld
+DEFS     := -DSTM32F401xE
+INCS     := -I$(FW)/targets/f401 -I$(TP)/cmsis/core -I$(TP)/cmsis/device_f4
+HAL_SRCS :=
+BSP_SRCS := $(TP)/cmsis/device_f4/system_stm32f4xx.c \
+            $(FW)/targets/f401/board.c $(FW)/targets/f401/syscalls.c
+ASM_SRCS := $(TP)/cmsis/device_f4/startup_stm32f401xe.s
+DOOM_BSP :=
 else
-$(error Unknown TARGET '$(TARGET)' (use h743 or bluepill))
+$(error Unknown TARGET '$(TARGET)' (use h743, bluepill or f401))
 endif
 
 # --------------------------------------------------------------- projects --
+ifeq ($(PROJECT)-$(TARGET),doom-f401)
+$(error DOOM needs the H743: its zone heap alone is larger than the F401's 96 KB of RAM)
+endif
 ifeq ($(PROJECT),doom)
 DOOM_DEFS := -DCMAP256 -DDG_NO_SCREENBUFFER -DDG_ZONE_PROVIDER -DDG_NO_WIPE \
              -DDG_ZONE_STATIC_TOP -DDG_STATES_IN_FLASH -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200

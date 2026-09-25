@@ -1,6 +1,7 @@
 /*
  * Blinky: CubeMX-style HAL application for the STM32H743. The fallback keeps
- * this same example available on the register-level Blue Pill target.
+ * this same example available on the register-level Blue Pill and
+ * Nucleo-F401RE targets.
  */
 #include <stdio.h>
 
@@ -21,7 +22,7 @@ int main(void)
     for (;;) {
         HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
         printf("blink %lu\n", (unsigned long)count++);
-        HAL_Delay(500);
+        HAL_Delay(3000);
     }
 }
 
@@ -38,7 +39,7 @@ int main(void)
     for (;;) {
         led_toggle();
         printf("blink %lu\n", (unsigned long)count++);
-        delay_ms(500);
+        delay_ms(3000);
     }
 }
 #endif

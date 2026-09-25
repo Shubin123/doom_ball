@@ -14,9 +14,11 @@ class ExamplePreview {
     this.stop();
     this.root.hidden = false;
     this.root.innerHTML = `<div class="preview-head"><span class="preview-title"></span><span class="preview-tag">C SOURCE SIMULATION</span></div>
-      <div class="preview-board"><div class="board-label">STM32 ${target === 'bluepill' ? 'F103 · Blue Pill' : 'H743 · board model'}</div><div class="board-chip">STM32</div>
+      <div class="preview-board"><div class="board-label">STM32 ${{ bluepill: 'F103 · Blue Pill', f401: 'F401RE · Nucleo-64' }[target] || 'H743 · board model'}</div><div class="board-chip">STM32</div>
       <button type="button" class="board-button" id="preview-button" aria-label="Press simulated PE4 button">PE4</button>
-      <div class="board-led" id="preview-led"><i></i><span>PC13 · LED</span></div><div class="board-pins">PA9 TX · PA10 RX<br>USART1 · 115200 8N1</div></div>
+      <div class="board-led" id="preview-led"><i></i><span>${target === 'f401' ? 'PA5 · LD2' : 'PC13 · LED'}</span></div><div class="board-pins">${target === 'f401'
+        ? 'PA2 TX · PA3 RX<br>USART2 · ST-Link USB serial'
+        : 'PA9 TX · PA10 RX<br>USART1 · 115200 8N1'}</div></div>
       <div class="lcd-preview" id="preview-lcd" hidden><span>ILI9341 · RGB565</span><b id="preview-color-name">LCD waiting</b></div>
       <div class="rtos-preview" id="preview-rtos" hidden><div class="rtos-title"><b>FreeRTOS task list</b><span id="rtos-status">waiting for scheduler</span></div><div id="rtos-task-list"></div><div class="rtos-caption">Task state changes are reported by the selected C source simulation.</div></div>
       <div class="preview-terminal"><div class="preview-term-title">USART output / runtime <span id="preview-status">loading C source</span></div><pre id="preview-log" aria-live="polite"></pre></div>
@@ -38,9 +40,9 @@ class ExamplePreview {
       const source = await readSource(example.entry);
       if (runId !== this.runId) return;
       if (typeof source !== 'string') throw new Error(`Could not load ${example.entry}`);
-      const targetHeaders = target === 'bluepill'
-        ? ['firmware/targets/bluepill/board.h']
-        : ['firmware/targets/h743/board.h','firmware/targets/h743/board_config.h'];
+      const targetHeaders = target === 'h743'
+        ? ['firmware/targets/h743/board.h','firmware/targets/h743/board_config.h']
+        : [`firmware/targets/${target}/board.h`];
       const definitions = await Promise.all(targetHeaders.map((path) => readSource(path)));
       if (runId !== this.runId) return;
       this.sim = new CBoardSimulation(source, {

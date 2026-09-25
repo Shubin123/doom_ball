@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'server'))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import forge_server  # noqa: E402
 
+# Combinations the Makefile refuses outright (no linker report to show).
+SKIP = {('f401', 'doom')}
 OUT = os.path.join(forge_server.ROOT, 'firmware', 'prebuilt')
 
 
@@ -21,6 +23,8 @@ def main():
     manifest = {'toolchain': forge_server.find_toolchain()[1], 'builds': {}}
     for target in forge_server.TARGETS:
         for project in forge_server.PROJECTS:
+            if (target, project) in SKIP:
+                continue
             key = '%s-%s' % (target, project)
             r = forge_server.build(target, project)
             entry = {k: r.get(k) for k in ('ok', 'memory', 'zone', 'zoneBanks', 'binarySize')}

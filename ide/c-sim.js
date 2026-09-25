@@ -20,7 +20,7 @@ function tokenizeC(source, target) {
   const active = [];
   let enabled = true;
   const macros = new Map();
-  if (target !== 'bluepill') macros.set('USE_HAL_DRIVER',1);
+  if (target === 'h743') macros.set('USE_HAL_DRIVER',1);
   const condition = (expression) => {
     const defined = expression.match(/defined\s*(?:\(\s*(\w+)\s*\)|(\w+))/);
     if (defined) return macros.has(defined[1] || defined[2]) !== /^\s*!/.test(expression);
@@ -230,8 +230,8 @@ export class CBoardSimulation {
     this.rtosTasks = []; this.schedulerStarted = false; this.schedulerWaiter = null;
     this.macros = { GPIO_PIN_RESET:0, GPIO_PIN_SET:1, HAL_OK:0, HAL_ERROR:1, HAL_MAX_DELAY:0xffffffff,
       LED_PORT:'GPIOC', LED_PIN:0x2000, BUTTONS_PORT:'GPIOE', BTN_FIRE_PIN:0x10,
-      BOARD_NAME:target === 'bluepill' ? 'STM32F103C8T6 Blue Pill' : 'STM32H743IITx',
-      SystemCoreClock:target === 'bluepill' ? 72000000 : 400000000, huart1:'USART1', GPIOA:'GPIOA', GPIOB:'GPIOB', GPIOC:'GPIOC', GPIOE:'GPIOE', NULL:0, pdTRUE:1, pdFALSE:0, pdPASS:1 };
+      BOARD_NAME:{ bluepill:'STM32F103C8T6 Blue Pill', f401:'STM32F401RE Nucleo-F401RE' }[target] || 'STM32H743IITx',
+      SystemCoreClock:{ bluepill:72000000, f401:84000000 }[target] || 400000000, huart1:'USART1', GPIOA:'GPIOA', GPIOB:'GPIOB', GPIOC:'GPIOC', GPIOE:'GPIOE', NULL:0, pdTRUE:1, pdFALSE:0, pdPASS:1 };
   }
   async start() {
     const parser = new CParser(tokenizeC(this.source,this.target));

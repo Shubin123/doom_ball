@@ -14,8 +14,8 @@
     },
     {
       "id": "blinky", "name": "Blinky", "group": "basics",
-      "description": "The board's PC13 LED blinks every 500 ms and reports the count over USART1.",
-      "entry": "firmware/projects/blinky/main.c", "targets": ["h743", "bluepill"]
+      "description": "The board LED toggles every 3 s and reports the count on the console UART: PC13 and USART1 on the H743 and Blue Pill, LD2 and the ST-Link USB serial port on the Nucleo-F401RE.",
+      "entry": "firmware/projects/blinky/main.c", "targets": ["h743", "bluepill", "f401"]
     },
     {
       "id": "button-led", "name": "Button controlled LED", "group": "io",

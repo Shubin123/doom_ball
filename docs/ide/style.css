@@ -74,6 +74,9 @@ button { cursor: pointer; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-bright); }
+.split { display: inline-flex; }
+.split .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split .btn + .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; padding-left: 7px; padding-right: 7px; }
 .spacer { flex: 1; }
 .status { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
 .autosave-status { color: var(--accent-bright); }

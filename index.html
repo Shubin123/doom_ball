@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STM32 Forge</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/codemirror/codemirror.min.css">
 <link rel="stylesheet" href="ide/style.css">
 </head>
 <body>
@@ -20,6 +20,7 @@
       <select id="target">
         <option value="h743">STM32H743IITx — 2 MB flash / 1 MB RAM</option>
         <option value="bluepill">STM32F103C8T6 Blue Pill — 64 KB / 20 KB</option>
+        <option value="f401">STM32F401RE Nucleo-F401RE — 512 KB / 96 KB</option>
       </select>
     </label>
     <label>Example
@@ -27,7 +28,10 @@
     </label>
     <div class="sep"></div>
     <button class="btn primary" id="btn-build" title="Build (Ctrl+B)">Build</button>
-    <button class="btn" id="btn-flash" title="Flash the device">Flash…</button>
+    <div class="split">
+      <button class="btn" id="btn-flash" title="Flash the device">Flash…</button>
+      <button class="btn" id="btn-flash-more" title="Other flash methods" aria-label="Other flash methods">▾</button>
+    </div>
     <button class="btn" id="btn-serial" title="Open the USART1 console">Connect serial</button>
     <button class="btn" id="btn-clock" title="Open the board clock diagram" aria-pressed="false">Clock diagram</button>
     <div class="spacer"></div>
@@ -156,6 +160,11 @@
       <small>Choose a rebuilt firmware.bin to flash it. Leave empty to flash the selected built-in image.</small>
     </label>
     <div class="methods">
+      <label class="method" id="m-stlink">
+        <input type="radio" name="method" value="stlink">
+        <span><b>Instant flash</b> (WebUSB via on-board ST-Link, Nucleo-F401RE)
+          <small>Just the USB cable: no BOOT0 jumper, no reset button. Halts, erases, programs, verifies and restarts the board; the serial console stays connected.</small></span>
+      </label>
       <label class="method" id="m-uart">
         <input type="radio" name="method" value="uart" checked>
         <span><b>UART bootloader</b> (Web Serial, both chips)
@@ -175,11 +184,11 @@
   </form>
 </dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/gas/gas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="vendor/codemirror/codemirror.min.js"></script>
+<script src="vendor/codemirror/mode/clike/clike.min.js"></script>
+<script src="vendor/codemirror/mode/gas/gas.min.js"></script>
+<script src="vendor/codemirror/addon/edit/matchbrackets.min.js"></script>
+<script src="vendor/codemirror/addon/selection/active-line.min.js"></script>
 <script src="sim/doom.js"></script>
 <!-- The static IDE bundle runs in the browser and also supports file:// for the editor demo. -->
 <script src="ide/forge.js"></script>

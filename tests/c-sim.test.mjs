@@ -28,7 +28,7 @@ function runC(source, { target = 'h743', speed = 1, until, onOutput, timeout = 3
 
 test('Blinky executes C printf, HAL_GPIO_TogglePin and the edited HAL_Delay interval', async () => {
   let code = await sourceFor('blinky');
-  code = code.replace('blink %lu', 'pulse %lu').replace('HAL_Delay(500)', 'HAL_Delay(125)');
+  code = code.replace('blink %lu', 'pulse %lu').replace(/HAL_Delay\(\d+\)/, 'HAL_Delay(125)');
   const started = performance.now();
   const { state } = await runC(code, { speed: 1, until: (s) => s.output.includes('pulse 1') });
   const elapsed = performance.now() - started;
@@ -63,7 +63,7 @@ test('C preprocessor string and numeric definitions affect simulated output and 
   let code = await sourceFor('blinky');
   code = `#define BOOT_MESSAGE "custom startup @ %lu MHz\\n"\n#define BLINK_PERIOD_MS 125U\n${code}`
     .replace('"STM32 Forge blinky @ %lu MHz\\n"', 'BOOT_MESSAGE')
-    .replace('HAL_Delay(500)', 'HAL_Delay(BLINK_PERIOD_MS)');
+    .replace(/HAL_Delay\(\d+\)/, 'HAL_Delay(BLINK_PERIOD_MS)');
   const started = performance.now();
   const { state } = await runC(code, { speed: 1, until: (s) => s.output.includes('blink 1') });
   assert.match(state.output, /custom startup @ 400 MHz/);
@@ -108,4 +108,10 @@ test('Blue Pill build branch runs its board C source in the same interpreter', a
   const code = await sourceFor('blinky');
   const { state } = await runC(code, { target: 'bluepill', speed: 8, until: (s) => s.output.includes('blink 0') });
   assert.match(state.output, /STM32 Forge blinky on STM32F103C8T6 Blue Pill @ 72 MHz/);
+});
+
+test('Nucleo-F401RE build branch runs blinky on the register-level board', async () => {
+  const code = await sourceFor('blinky');
+  const { state } = await runC(code, { target: 'f401', speed: 8, until: (s) => s.output.includes('blink 0') });
+  assert.match(state.output, /STM32 Forge blinky on STM32F401RE Nucleo-F401RE @ 84 MHz/);
 });

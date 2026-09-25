@@ -16,7 +16,7 @@ fi
 MAKEARGS="-C firmware -j$(nproc 2>/dev/null || echo 4) ${ARM_GCC_PATH:+ARM_GCC_PATH=$ARM_GCC_PATH}"
 
 step "firmware builds"
-for tp in h743:doom h743:blinky bluepill:blinky; do
+for tp in h743:doom h743:blinky bluepill:blinky f401:blinky; do
   make $MAKEARGS TARGET=${tp%%:*} PROJECT=${tp##*:} >/tmp/forge_build.log 2>&1
   check $? "build ${tp%%:*}/${tp##*:}"
 done

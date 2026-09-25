@@ -16,11 +16,12 @@ class ClockDiagram {
 
   async show({ target, readSource }) {
     this.root.innerHTML = '<div class="clock-loading">Reading board clock configuration…</div>';
-    const path = target === 'bluepill' ? 'firmware/targets/bluepill/board.c' : 'firmware/targets/h743/board.c';
+    const path = `firmware/targets/${['bluepill', 'f401'].includes(target) ? target : 'h743'}/board.c`;
     const source = await readSource(path);
     if (typeof source !== 'string') throw new Error(`Could not load ${path}`);
     try {
       if (target === 'bluepill') this.renderBluePill(source, path);
+      else if (target === 'f401') this.renderF401(source, path);
       else this.renderH743(source, path);
     } catch (error) {
       this.root.innerHTML = '';
@@ -60,6 +61,25 @@ class ClockDiagram {
       <div class="clock-branch"><div class="clock-node source"><small>HSE crystal</small><b>${hse} MHz</b><span>normal startup path</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>PLL × ${hseMult}</small><b>SYSCLK ${hseSys} MHz</b><span>maximum HCLK</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>APB1 ÷ 2</small><b>${hseSys/2} MHz</b><span>peripheral bus</span></div></div>
       <div class="clock-branch"><div class="clock-node source"><small>HSI fallback</small><b>${hse/2} MHz</b><span>internal / 2</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>PLL × ${hsiMult}</small><b>SYSCLK ${hsiSys} MHz</b><span>when HSE is absent</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>APB1 ÷ 2</small><b>${hsiSys/2} MHz</b><span>peripheral bus</span></div></div>
       </div><p class="clock-note">Branches are derived from <code>${path}</code>; runtime selects HSE when ready, otherwise HSI.</p>`;
+    this.root.querySelector('.clock-source').textContent = path;
+  }
+
+  renderF401(source, path) {
+    const hseM = this.number(source, /uint32_t pllm = (\d+);/, 'PLL M for HSE');
+    const hsiM = this.number(source, /pllm = (\d+);\s*\/\* 16 MHz HSI/, 'PLL M for HSI');
+    const n = this.number(source, /\((\d+)u << RCC_PLLCFGR_PLLN_Pos\)/, 'PLL N');
+    const q = this.number(source, /\((\d+)u << RCC_PLLCFGR_PLLQ_Pos\)/, 'PLL Q');
+    const pllcfgr = source.match(/RCC->PLLCFGR\s*=([^;]*);/)?.[1] || '';
+    const p = 2 + 2 * ((/PLLP_0/.test(pllcfgr) ? 1 : 0) + (/PLLP_1/.test(pllcfgr) ? 2 : 0));
+    const apb1 = this.divider(source, 'RCC->CFGR', 'APB1');
+    const branch = (label, mhz, note, m) => {
+      const vco = mhz / m * n, sys = vco / p;
+      return `<div class="clock-branch"><div class="clock-node source"><small>${label}</small><b>${mhz} MHz</b><span>${note}</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>PLL ÷ ${m} × ${n}</small><b>VCO ${vco} MHz</b><span>${mhz / m} MHz reference</span></div><i class="clock-arrow">→</i><div class="clock-node primary"><small>PLL P ÷ ${p}</small><b>SYSCLK ${sys} MHz</b><span>USB ÷ ${q}: ${(vco / q).toFixed(0)} MHz</span></div><i class="clock-arrow">→</i><div class="clock-node"><small>APB1 ÷ ${apb1}</small><b>${sys / apb1} MHz</b><span>USART2 console</span></div></div>`;
+    };
+    this.root.innerHTML = `<div class="clock-source mono"></div><div class="clock-tree f1-tree">
+      ${branch('HSE bypass', 8, 'ST-Link MCO clock', hseM)}
+      ${branch('HSI fallback', 16, 'internal RC', hsiM)}
+      </div><p class="clock-note">Branches are derived from <code>${path}</code>; runtime uses the ST-Link clock when it starts, otherwise HSI.</p>`;
     this.root.querySelector('.clock-source').textContent = path;
   }
 }

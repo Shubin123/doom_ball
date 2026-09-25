@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 8732);
 const TARGETS = {
   h743: { name: 'STM32H743IITx', core: 'Cortex-M7 @ 400 MHz', flash: 2097152, ram: 1048576 },
   bluepill: { name: 'STM32F103C8T6 (Blue Pill)', core: 'Cortex-M3 @ 72 MHz', flash: 65536, ram: 20480 },
+  f401: { name: 'STM32F401RE (Nucleo-F401RE)', core: 'Cortex-M4 @ 84 MHz', flash: 524288, ram: 98304 },
 };
 const PROJECTS = JSON.parse(fs.readFileSync(path.join(ROOT, 'firmware/projects/catalog.json'), 'utf8'))
   .projects.map((project) => project.id);
@@ -126,7 +127,7 @@ async function handleBuild(req, res) {
   } finally { building = false; }
 }
 
-const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.wasm': 'application/wasm', '.wad': 'application/octet-stream', '.bin': 'application/octet-stream', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.wasm': 'application/wasm', '.wad': 'application/octet-stream', '.bin': 'application/octet-stream', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.tar': 'application/x-tar', '.mjs': 'text/javascript' };
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);

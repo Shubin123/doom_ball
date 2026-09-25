@@ -8,9 +8,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const chrome = process.env.CHROME || ['/usr/bin/google-chrome-stable','/usr/bin/google-chrome','/usr/bin/chromium'].find(existsSync);
+const chrome = process.env.CHROME || ['/usr/bin/google-chrome-stable','/usr/bin/google-chrome','/usr/bin/chromium',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(existsSync);
 
-test('static IDE runs C source on virtual HAL and search opens real source matches', { skip: !chrome }, async () => {
+// Serves the checkout, opens the static IDE in headless Chrome and hands the
+// test a DevTools evaluate / waitFor pair, the uncaught page errors and every
+// URL the page requested.
+async function withStaticIde(run) {
   const profile = mkdtempSync(path.join(tmpdir(), 'forge-static-chrome-'));
   const server = createServer((req, res) => {
     let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -39,10 +43,11 @@ test('static IDE runs C source on virtual HAL and search opens real source match
     ws = new WebSocket(page.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once:true }); ws.addEventListener('error', reject, { once:true }); });
     let nextId = 0;
-    const pending = new Map(), errors = [];
+    const pending = new Map(), errors = [], requests = [];
     ws.addEventListener('message', (event) => {
       const message = JSON.parse(event.data);
       if (message.id && pending.has(message.id)) { pending.get(message.id)(message); pending.delete(message.id); }
+      if (message.method === 'Network.requestWillBeSent') requests.push(message.params.request.url);
       if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
     });
     const send = (method, params = {}) => new Promise((resolve) => { const id = ++nextId; pending.set(id, resolve); ws.send(JSON.stringify({ id, method, params })); });
@@ -53,9 +58,23 @@ test('static IDE runs C source on virtual HAL and search opens real source match
       throw new Error(`Timed out waiting for browser expression: ${expression}`);
     };
     await send('Runtime.enable');
+    await send('Network.enable');
     await send('Page.enable');
     await send('Page.navigate', { url:`http://127.0.0.1:${port}/` });
     await waitFor(`document.readyState === 'complete' && document.querySelector('#project')?.options.length > 0`);
+    await run({ send, evaluate, waitFor, errors, requests });
+  } finally {
+    ws?.close(); proc.kill(); server.close();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    rmSync(profile, { recursive:true, force:true, maxRetries:10, retryDelay:100 });
+  }
+}
+
+test('static IDE runs C source on virtual HAL and search opens real source matches', { skip: !chrome }, async () => {
+  await withStaticIde(async ({ send, evaluate, waitFor, errors, requests }) => {
+    await waitFor(`document.fonts.status === 'loaded' && typeof CodeMirror === 'function'`);
+    const external = requests.filter((url) => !/^(http:\/\/127\.0\.0\.1:\d+\/|data:|blob:)/.test(url));
+    assert.deepEqual(external, [], 'the site is self-contained: nothing is loaded from other hosts');
     await evaluate(`(() => { const p=document.querySelector('#project'); p.value='button-led'; p.dispatchEvent(new Event('change',{bubbles:true})); return true; })()`);
     await waitFor(`document.querySelector('#preview-log')?.textContent.includes('press PE4')`);
     await evaluate(`document.querySelector('#preview-button').click()`);
@@ -107,9 +126,31 @@ test('static IDE runs C source on virtual HAL and search opens real source match
       assert.equal(await evaluate(`document.querySelector('#term-build').textContent.includes('Build succeeded')`), true, await evaluate(`document.querySelector('#term-build').textContent`));
     }
     assert.deepEqual(errors, []);
-  } finally {
-    ws?.close(); proc.kill(); server.close();
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    rmSync(profile, { recursive:true, force:true });
-  }
+  });
+});
+
+test('Nucleo-F401RE Flash button instant-flashes through the ST-Link with no dialog', { skip: !chrome }, async () => {
+  await withStaticIde(async ({ evaluate, waitFor, errors }) => {
+    // WebUSB backed by the simulated ST-Link + STM32F401RE, already allowed for this site.
+    await evaluate(`import('/tests/sim_stlink.mjs').then(({ SimStLink }) => {
+      window.simStLink = new SimStLink();
+      const usb = { getDevices: async () => [window.simStLink], requestDevice: async () => { throw new Error('picker shown'); }, addEventListener() {} };
+      Object.defineProperty(navigator, 'usb', { value: usb, configurable: true });
+      const t = document.querySelector('#target'); t.value = 'f401'; t.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })`);
+    assert.equal(await evaluate(`document.querySelector('#project').value`), 'blinky');
+    assert.equal(await evaluate(`document.querySelector('#btn-flash').textContent`), 'Flash');
+    await evaluate(`document.querySelector('#btn-flash').click()`);
+    await waitFor(`/Flashed, verified and started|Flash failed/.test(document.querySelector('#term-flash').textContent)`);
+    const log = await evaluate(`document.querySelector('#term-flash').textContent`);
+    assert.match(log, /Flashed, verified and started 5\.4 KB/, log);
+    assert.match(log, /STM32F401xD\/E/);
+    assert.equal(await evaluate(`document.querySelector('#flash-dialog').open`), false, 'no dialog for instant flash');
+    assert.equal(await evaluate(`fetch('firmware/prebuilt/f401-blinky.bin').then((r) => r.arrayBuffer()).then((b) => {
+      const want = new Uint8Array(b), sim = window.simStLink;
+      return want.every((x, i) => sim.flash[i] === x) && sim.running && !sim.halted;
+    })`), true, 'simulated flash holds the prebuilt image and the core runs');
+    assert.deepEqual(errors, []);
+  });
 });

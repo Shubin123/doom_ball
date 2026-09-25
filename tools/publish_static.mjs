@@ -14,7 +14,7 @@ const copy = async (from, to) => {
 
 await fs.copyFile(path.join(root, 'index.html'), path.join(docs, 'index.html'));
 await fs.copyFile(path.join(root, '.nojekyll'), path.join(docs, '.nojekyll'));
-for (const folder of ['ide', 'sim', 'engine']) await copy(folder, folder);
+for (const folder of ['ide', 'sim', 'engine', 'vendor']) await copy(folder, folder);
 await copy('firmware/targets', 'firmware/targets');
 await copy('firmware/projects', 'firmware/projects');
 await copy('firmware/third_party', 'firmware/third_party');
