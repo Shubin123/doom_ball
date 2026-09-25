@@ -867,3 +867,4 @@ brightnessInput.addEventListener('input', () => {
   localStorage.setItem('stm32-forge-game-brightness', brightnessInput.value);
 });
 setGameBrightness(localStorage.getItem('stm32-forge-game-brightness') || brightnessInput.value);
+initWindowManager();

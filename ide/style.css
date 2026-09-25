@@ -49,7 +49,8 @@ button, select, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
-#app { display: grid; grid-template-rows: 46px 1fr 210px; height: 100vh; }
+#app { display: grid; grid-template-rows: 46px minmax(0, 1fr) 210px; height: 100vh; }
+#app.bottom-floating { grid-template-rows: 46px minmax(0, 1fr) 0; }
 
 /* toolbar */
 .toolbar {
@@ -116,7 +117,8 @@ button { cursor: pointer; }
 .note code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--bg-surface); padding: 1px 4px; border-radius: 3px; }
 
 .editor { min-width: 0; }
-.editor-tabs { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border); overflow-x: auto; min-height: 33px; }
+.editor-titlebar { display: flex; align-items: center; min-width: 0; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
+.editor-tabs { display: flex; flex: 1; min-width: 0; background: var(--bg-panel); overflow-x: auto; min-height: 33px; }
 .editor-tab {
   padding: 7px 12px; font: 12px 'JetBrains Mono', monospace; color: var(--text-dim);
   border-right: 1px solid var(--border); white-space: nowrap; cursor: pointer; display: flex; gap: 6px;
@@ -245,6 +247,18 @@ kbd {
 .progress { height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden; width: 160px; }
 .progress > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.15s; }
 
+/* Pane windows */
+.pane-actions, .pane-head-actions { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.pane-toggle { padding: 3px 7px; border: 1px solid var(--border-bright); border-radius: 4px; background: var(--bg-surface); color: var(--text); font: 10px 'Inter',sans-serif; text-transform: none; letter-spacing: 0; }
+.pane-toggle:hover { background: var(--bg-hover); color: var(--accent-bright); }
+.pane-drag-handle { cursor: grab; touch-action: none; }
+.floating { position: fixed !important; display: flex !important; min-width: 220px; min-height: 140px; max-width: calc(100vw - 12px); max-height: calc(100vh - 52px); resize: both; overflow: auto !important; border: 1px solid var(--border-bright); border-radius: 6px; box-shadow: 0 14px 42px #0009; }
+.floating .pane-drag-handle { cursor: grab; user-select: none; }
+.floating .pane-drag-handle:active { cursor: grabbing; }
+.floating.editor { min-width: 300px; }
+.floating.bottom { min-width: 320px; }
+.bottom.floating { border-top: 1px solid var(--border-bright); }
+
 /* dialog */
 dialog {
   background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright);
@@ -267,7 +281,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 @media (max-width: 860px) {
   body { overflow: auto; }
   #app { height: auto; grid-template-rows: auto auto 260px; }
-  .main { grid-template-columns: 1fr; }
+  .main { grid-template-columns: 1fr !important; }
   .files { max-height: 180px; border-right: none; border-bottom: 1px solid var(--border); }
   .editor { height: 55vh; }
   .side { border-left: none; }

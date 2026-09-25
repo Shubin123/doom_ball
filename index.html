@@ -36,7 +36,7 @@
 
   <div class="main">
     <aside class="panel files">
-      <div class="panel-head">Files</div>
+      <div class="panel-head"><span>Files</span><span class="pane-actions"></span></div>
       <section class="example-card" aria-live="polite">
         <div class="example-kicker">Selected example</div>
         <strong id="example-name">DOOM</strong>
@@ -57,7 +57,7 @@
     </aside>
 
     <section class="panel editor">
-      <div class="editor-tabs" id="tabs"></div>
+      <div class="editor-titlebar"><div class="editor-tabs" id="tabs"></div><span class="pane-actions"></span></div>
       <div class="editor-body" id="editor-body">
         <div class="editor-empty" id="editor-empty">Open a file from the tree.</div>
       </div>
@@ -67,7 +67,7 @@
       <div class="section">
         <div class="panel-head">
           <span id="emu-title">Emulator — DOOM engine (WebAssembly)</span>
-          <span class="mono" id="emu-fps"></span>
+          <span class="pane-head-actions"><span class="mono" id="emu-fps"></span><span class="pane-actions"></span></span>
         </div>
         <div class="section-body">
           <div class="screen">
@@ -109,6 +109,7 @@
       <div class="tools">
         <div class="progress" id="flash-progress" hidden><span></span></div>
         <button class="btn" id="btn-clear">Clear</button>
+        <span class="pane-actions"></span>
       </div>
     </div>
     <div class="term active mono" id="term-build"></div>

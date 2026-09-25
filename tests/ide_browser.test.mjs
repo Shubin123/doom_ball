@@ -65,6 +65,22 @@ test('static IDE runs C source on virtual HAL and search opens real source match
     await waitFor(`document.querySelector('#source-search-results')?.textContent.includes('firmware/projects/button-led/main.c:')`);
     await evaluate(`([...document.querySelectorAll('.search-result')].find(x=>x.textContent.includes('firmware/projects/button-led/main.c:'))).click()`);
     await waitFor(`document.querySelector('.editor-tab.active')?.title === 'firmware/projects/button-led/main.c'`);
+    await evaluate(`document.querySelector('.files .pane-toggle').click()`);
+    assert.equal(await evaluate(`document.querySelector('.files').classList.contains('floating')`), true);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.files')).resize`), 'both');
+    const beforeDrag = await evaluate(`parseInt(document.querySelector('.files').style.left,10)`);
+    const headerPoint = await evaluate(`(() => { const r=document.querySelector('.files .panel-head').getBoundingClientRect(); return {x:r.left+Math.min(60,r.width/2),y:r.top+r.height/2}; })()`);
+    await send('Input.dispatchMouseEvent', { type:'mousePressed', x:headerPoint.x, y:headerPoint.y, button:'left', buttons:1 });
+    await send('Input.dispatchMouseEvent', { type:'mouseMoved', x:headerPoint.x+45, y:headerPoint.y+28, button:'left', buttons:1 });
+    await send('Input.dispatchMouseEvent', { type:'mouseReleased', x:headerPoint.x+45, y:headerPoint.y+28, button:'left', buttons:0 });
+    assert.equal(await evaluate(`parseInt(document.querySelector('.files').style.left,10)`), beforeDrag + 45);
+    await evaluate(`document.querySelector('.files .pane-toggle').click()`);
+    assert.equal(await evaluate(`document.querySelector('.files').classList.contains('floating')`), false);
+    await evaluate(`document.querySelector('.editor .pane-toggle').click()`);
+    assert.equal(await evaluate(`document.querySelector('.editor').classList.contains('floating')`), true);
+    assert.equal(await evaluate(`document.querySelector('.editor-tab.active')?.title`), 'firmware/projects/button-led/main.c');
+    await evaluate(`document.querySelector('.editor .pane-toggle').click()`);
+    assert.equal(await evaluate(`document.querySelector('.bottom .pane-toggle')?.textContent`), 'Float');
     assert.deepEqual(errors, []);
   } finally {
     ws?.close(); proc.kill(); server.close();
