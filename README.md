@@ -13,26 +13,26 @@ STM32H743.
 ## Online demo and local IDE
 
 GitHub Pages serves the complete static demo: the DOOM WebAssembly game, editable
-source browser, linker reports, and prebuilt firmware images. Source edits are
-saved as drafts in the current browser. Flashing a prebuilt image works from
-Chrome or Edge on an HTTPS Pages URL. Pages is static hosting, so builds and
-file saves into a checkout run locally with the Node server below.
+source browser, browser-side H743 compiler, linker reports, and prebuilt firmware.
+Source edits are saved as drafts in the current browser. The Build button compiles
+those drafts in the browser using a pinned WebAssembly ARM toolchain; no server or
+workflow runs. The first build downloads about 98 MB of compiler assets from
+unpkg, which the browser caches. Flashing and serial use Web Serial/WebUSB in
+Chrome or Edge on HTTPS.
 
-On every push to `main`, `.github/workflows/pages.yml` deploys the demo through
-GitHub Pages. Enable **Settings → Pages → Build and deployment → GitHub Actions**
-once in the repository settings.
+Pages serves the checked-in `main:/docs` folder. After editing the site, run
+`node tools/bundle_ide.mjs && node tools/publish_static.mjs`, then commit the
+updated static tree. There are no GitHub Actions workflows for building or
+publishing this site.
 
 **Play**: Run starts directly in E1M1. Click the game screen, then use the
 arrow keys or WASD to move, Ctrl or F to fire, Space to use, and Shift to run.
 
-**Rebuild and flash H743 changes**: commit the firmware or engine changes, then
-use the IDE's **Build** button to open the H743 GitHub Actions workflow. Choose
-DOOM or Blinky under **Run workflow**. Each build uploads `firmware.bin`, the
-Intel HEX file, the linker map, and the compiler/memory report as a downloadable
-artifact. In **Flash…**, select the downloaded `.bin` to flash that exact build
-over UART or USB DFU. Pages edits are browser drafts; commit the changed source
-to GitHub before rebuilding. Pushes that change H743 firmware or engine files
-also start the DOOM build automatically.
+**Rebuild and flash H743 changes**: edit firmware or engine sources in the IDE,
+press **Build**, then select the resulting image in **Flash…**. The build uses
+the current editor buffers, reports compiler/linker memory usage, and creates
+the `.bin` in the browser. The image can be flashed directly over UART or USB
+DFU without downloading an artifact or sending code to a server.
 
 ```sh
 node server/forge_server.mjs            # then open http://localhost:8732/
@@ -44,11 +44,9 @@ The Node server serves the IDE, saves edited files to the checkout, and invokes
 to enable firmware builds. The checked-in `ide/forge.js` bundle is regenerated
 with `node tools/bundle_ide.mjs` after editing `ide/`.
 
-The static demo cannot compile browser drafts or write commits to GitHub. On
-Pages, edits persist only as local browser drafts; commit source changes before
-using the H743 Actions rebuild. The Node server offers immediate builds and
-checkout saves when working locally. The prebuilt H743 DOOM and blinky images
-are also available for flashing directly from the static demo.
+On Pages, source edits remain local browser drafts. The optional Node server
+still offers checkout saves and native GCC builds for local development. The
+prebuilt H743 DOOM and blinky images remain available for flashing directly.
 
 Flashing and the serial console use Web Serial and WebUSB, which need Chrome
 or Edge.
@@ -58,9 +56,11 @@ or Edge.
 - **DOOM**: id Software's engine (the [doomgeneric](https://github.com/ozkl/doomgeneric)
   port, GPLv2) with the shareware `DOOM1.WAD`. The same sources are compiled
   to WebAssembly for the emulator and to ARM for the H743.
-- **Builds**: the IDE's Build button runs `make` in `firmware/` through
-  `server/forge_server.mjs`, then shows the compiler output and the
-  `ld --print-memory-usage` report for every memory region.
+- **Builds**: the static IDE runs pinned WebAssembly Clang/LLD locally in the
+  browser, compiles source files plus unsaved editor buffers, links with
+  `firmware/targets/h743/h743.ld`, enforces the zone-heap limit, and produces
+  the `.bin` image in browser memory. The optional local Node server uses native Arm
+  GCC.
 - **Memory budget**: the emulator runs DOOM with its heap split into the
   same banks, at the same sizes, as the H743 firmware link. On the Blue Pill
   budget it fails the same way the real chip would.
