@@ -91,6 +91,43 @@ void Z_ClearZone (memzone_t* zone)
 
 
 
+#ifdef DG_ZONE_PROVIDER
+int DG_ZoneGap(int index, byte **start, byte **end);
+
+//
+// Lets the zone span several separate RAM banks. The unmapped range between
+// banks becomes a permanent PU_STATIC block whose header sits in the last
+// bytes of the lower bank, so the block list stays physically contiguous.
+//
+static memblock_t *Z_ReserveGap(memblock_t *free_block, byte *gap_start, byte *gap_end)
+{
+    memblock_t *gap = (memblock_t *) (gap_start - sizeof(memblock_t));
+    memblock_t *tail = (memblock_t *) gap_end;
+    byte *zone_end = (byte *) free_block + free_block->size;
+
+    tail->size = zone_end - gap_end;
+    tail->tag = PU_FREE;
+    tail->user = NULL;
+    tail->id = 0;
+
+    gap->size = gap_end - (byte *) gap;
+    gap->tag = PU_STATIC;
+    gap->user = NULL;
+    gap->id = ZONEID;
+
+    free_block->size = (byte *) gap - (byte *) free_block;
+
+    tail->next = free_block->next;
+    tail->prev = gap;
+    gap->next = tail;
+    gap->prev = free_block;
+    free_block->next = gap;
+    tail->next->prev = tail;
+
+    return tail;
+}
+#endif
+
 //
 // Z_Init
 //
@@ -117,6 +154,17 @@ void Z_Init (void)
     block->tag = PU_FREE;
     
     block->size = mainzone->size - sizeof(memzone_t);
+
+#ifdef DG_ZONE_PROVIDER
+    {
+        byte *gap_start, *gap_end;
+        int i;
+
+        // gaps must be listed in ascending address order
+        for (i = 0; DG_ZoneGap(i, &gap_start, &gap_end); i++)
+            block = Z_ReserveGap(block, gap_start, gap_end);
+    }
+#endif
 }
 
 
@@ -181,6 +229,61 @@ void Z_Free (void* ptr)
 #define MINFRAGMENT		64
 
 
+#ifdef DG_ZONE_STATIC_TOP
+//
+// Non-purgable blocks (static, level data, thinkers) are carved from the
+// highest free block instead of at the rover. Keeping them packed at the
+// top of the zone leaves one large contiguous region for purgable lumps,
+// which lets DOOM run in the ~800 KB of SRAM on an STM32H7.
+//
+static void *Z_MallocTop(int size, int tag, void *user)
+{
+    memblock_t *block;
+    memblock_t *newblock;
+    void *result;
+    int extra;
+
+    for (block = mainzone->blocklist.prev;
+         block != &mainzone->blocklist;
+         block = block->prev)
+    {
+        if (block->tag != PU_FREE || block->size < size)
+            continue;
+
+        extra = block->size - size;
+
+        if (extra > MINFRAGMENT)
+        {
+            // keep the free fragment below, allocate the top part
+            newblock = (memblock_t *) ((byte *)block + extra);
+            newblock->size = size;
+            newblock->prev = block;
+            newblock->next = block->next;
+            newblock->next->prev = newblock;
+            block->next = newblock;
+            block->size = extra;
+        }
+        else
+        {
+            newblock = block;
+        }
+
+        newblock->user = user;
+        newblock->tag = tag;
+        newblock->id = ZONEID;
+
+        result = (void *) ((byte *)newblock + sizeof(memblock_t));
+
+        if (user)
+            *newblock->user = result;
+
+        return result;
+    }
+
+    return NULL;
+}
+#endif
+
 void*
 Z_Malloc
 ( int		size,
@@ -203,6 +306,16 @@ Z_Malloc
 
     // account for size of block header
     size += sizeof(memblock_t);
+
+#ifdef DG_ZONE_STATIC_TOP
+    if (tag < PU_PURGELEVEL)
+    {
+        result = Z_MallocTop(size, tag, user);
+
+        if (result != NULL)
+            return result;
+    }
+#endif
     
     // if there is a free block behind the rover,
     //  back up over them

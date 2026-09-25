@@ -196,7 +196,12 @@ void D_Display (void)
     }
 
     // save the current screen if about to wipe
+#ifndef DG_NO_WIPE
     if (gamestate != wipegamestate)
+#else
+    // The melt wipe needs two extra 64 KB screen copies; MCU ports skip it.
+    if (0)
+#endif
 		{
 		wipe = true;
 		wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
@@ -1160,6 +1165,13 @@ static void LoadIwadDeh(void)
 //
 // D_DoomMain
 //
+// Exit handlers are called as void(void); calling G_CheckDemoStatus (which
+// returns boolean) through a cast pointer is undefined and traps in wasm.
+static void G_CheckDemoStatusAtExit(void)
+{
+    G_CheckDemoStatus();
+}
+
 void D_DoomMain (void)
 {
     int p;
@@ -1510,7 +1522,7 @@ void D_DoomMain (void)
         printf("Playing demo %s.\n", file);
     }
 
-    I_AtExit((atexit_func_t) G_CheckDemoStatus, true);
+    I_AtExit(G_CheckDemoStatusAtExit, true);
 
     // Generate the WAD hash table.  Speed things up a bit.
     W_GenerateHashTable();

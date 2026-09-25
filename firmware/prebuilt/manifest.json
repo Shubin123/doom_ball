@@ -1,0 +1,150 @@
+{
+ "toolchain": "arm-none-eabi-gcc (Arm GNU Toolchain 14.2.Rel1 (Build arm-14.52)) 14.2.1 20241119",
+ "builds": {
+  "h743-doom": {
+   "ok": true,
+   "memory": [
+    {
+     "region": "ITCM",
+     "used": 58368,
+     "size": 65536,
+     "overflow": 0
+    },
+    {
+     "region": "FLASH",
+     "used": 334180,
+     "size": 2097152,
+     "overflow": 0
+    },
+    {
+     "region": "DTCM",
+     "used": 118736,
+     "size": 131072,
+     "overflow": 0
+    },
+    {
+     "region": "AXI",
+     "used": 107616,
+     "size": 524288,
+     "overflow": 0
+    },
+    {
+     "region": "SRAM123",
+     "used": 0,
+     "size": 294912,
+     "overflow": 0
+    },
+    {
+     "region": "SRAM4",
+     "used": 60512,
+     "size": 65536,
+     "overflow": 0
+    }
+   ],
+   "zone": 723920,
+   "zoneBanks": [
+    12336,
+    416672,
+    294912
+   ],
+   "binarySize": 334180,
+   "errors": []
+  },
+  "h743-blinky": {
+   "ok": true,
+   "memory": [
+    {
+     "region": "ITCM",
+     "used": 0,
+     "size": 65536,
+     "overflow": 0
+    },
+    {
+     "region": "FLASH",
+     "used": 13628,
+     "size": 2097152,
+     "overflow": 0
+    },
+    {
+     "region": "DTCM",
+     "used": 66424,
+     "size": 131072,
+     "overflow": 0
+    },
+    {
+     "region": "AXI",
+     "used": 0,
+     "size": 524288,
+     "overflow": 0
+    },
+    {
+     "region": "SRAM123",
+     "used": 0,
+     "size": 294912,
+     "overflow": 0
+    },
+    {
+     "region": "SRAM4",
+     "used": 0,
+     "size": 65536,
+     "overflow": 0
+    }
+   ],
+   "zone": 883848,
+   "zoneBanks": [
+    64648,
+    524288,
+    294912
+   ],
+   "binarySize": 13628,
+   "errors": []
+  },
+  "bluepill-doom": {
+   "ok": false,
+   "memory": [
+    {
+     "region": "FLASH",
+     "used": 306196,
+     "size": 65536,
+     "overflow": 240660
+    },
+    {
+     "region": "RAM",
+     "used": 997720,
+     "size": 20480,
+     "overflow": 977240
+    }
+   ],
+   "zone": null,
+   "zoneBanks": null,
+   "binarySize": null,
+   "errors": [
+    "firmware/build/bluepill-doom/firmware.elf section `.text' will not fit in region `FLASH'",
+    "firmware/build/bluepill-doom/firmware.elf section `.data' will not fit in region `RAM'",
+    "region `FLASH' overflowed by 240660 bytes",
+    "region `RAM' overflowed by 977240 bytes"
+   ]
+  },
+  "bluepill-blinky": {
+   "ok": true,
+   "memory": [
+    {
+     "region": "FLASH",
+     "used": 5132,
+     "size": 65536,
+     "overflow": 0
+    },
+    {
+     "region": "RAM",
+     "used": 4560,
+     "size": 20480,
+     "overflow": 0
+    }
+   ],
+   "zone": null,
+   "zoneBanks": null,
+   "binarySize": 5132,
+   "errors": []
+  }
+ }
+}
