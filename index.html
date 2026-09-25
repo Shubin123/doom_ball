@@ -30,6 +30,7 @@
     <button class="btn primary" id="btn-build" title="Build (Ctrl+B)">Build</button>
     <button class="btn" id="btn-flash" title="Flash the device">Flash…</button>
     <button class="btn" id="btn-serial" title="Open the USART1 console">Connect serial</button>
+    <button class="btn" id="btn-clock" title="Open the board clock diagram" aria-pressed="false">Clock diagram</button>
     <div class="spacer"></div>
     <div class="status" id="server-status"><span class="dot"></span><span>checking build server…</span></div>
   </header>
@@ -98,6 +99,11 @@
         <div class="panel-head"><span>Memory</span><span class="mono" id="mem-source"></span></div>
         <div class="section-body" id="memory"></div>
       </div>
+    </aside>
+
+    <aside class="panel clock-pane" hidden>
+      <div class="panel-head"><span>Clock diagram</span><span class="pane-actions"></span></div>
+      <div class="clock-diagram" id="clock-diagram" aria-live="polite"></div>
     </aside>
   </div>
 
