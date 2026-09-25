@@ -1291,12 +1291,12 @@ function initWindowManager() {
     }
     app.classList.toggle('bottom-floating', !!floating('bottom'));
   }
-  function floatPane(id, pane, header, button) {
+  function floatPane(id, pane, header, button, placement) {
     pane.classList.add('floating');
     const fallback = id === 'bottom'
       ? { left: 260, top: innerHeight - 330, width: Math.min(900, innerWidth - 40), height: 290 }
       : { left: id === 'files' ? 270 : id === 'editor' ? 300 : 360, top: 70, width: id === 'files' ? 300 : id === 'editor' ? 700 : 470, height: id === 'side' ? 620 : 500 };
-    const r = saved[id] || fallback;
+    const r = placement || saved[id] || fallback;
     pane.style.left = `${Math.max(0, Math.min(innerWidth - 180, r.left))}px`;
     pane.style.top = `${Math.max(46, Math.min(innerHeight - 120, r.top))}px`;
     pane.style.width = `${Math.max(220, Math.min(innerWidth, r.width))}px`;
@@ -1313,31 +1313,59 @@ function initWindowManager() {
   }
   for (const [id, pane, headerSelector] of specs) {
     const header = pane.querySelector(headerSelector);
-    const actions = id === 'editor' ? header.querySelector('.pane-actions') : id === 'bottom' ? header.querySelector('.pane-actions') : header.querySelector('.pane-actions');
+    const actions = header.querySelector('.pane-actions');
     if (!pane || !header || !actions) continue;
     pane.dataset.pane = id;
     const button = document.createElement('button');
     button.className = 'pane-toggle'; button.type = 'button'; button.textContent = 'Float';
     button.title = `Float ${id}`; button.setAttribute('aria-label', `Float ${id}`);
     actions.appendChild(button);
+    const grip = document.createElement('span');
+    grip.className = 'pane-grip'; grip.textContent = '⠿'; grip.title = `Drag to move ${id}`;
+    grip.setAttribute('aria-label', `Drag to move ${id}`); actions.appendChild(grip);
     panes.set(id, pane);
     button.addEventListener('click', () => pane.classList.contains('floating') ? dockPane(id, pane, button) : floatPane(id, pane, header, button));
     pane.addEventListener('pointerdown', () => { if (pane.classList.contains('floating')) pane.style.zIndex = String(++z); });
     header.classList.add('pane-drag-handle');
     header.addEventListener('pointerdown', (event) => {
-      if (!pane.classList.contains('floating') || event.button !== 0 || event.target.closest('button,input,select,a,.editor-tab')) return;
+      if (event.button !== 0 || event.target.closest('button,input,select,a,.editor-tab') ||
+          (id === 'editor' && event.target.closest('.editor-tabs') && !event.target.closest('.pane-grip'))) return;
+      const start = { x: event.clientX, y: event.clientY };
       const rect = pane.getBoundingClientRect();
-      const dx = event.clientX - rect.left, dy = event.clientY - rect.top;
-      pane.style.zIndex = String(++z);
-      header.setPointerCapture(event.pointerId);
+      const offset = { x: start.x - rect.left, y: start.y - rect.top };
+      let dragging = false, frame = 0, latest = null;
       const move = (e) => {
-        pane.style.left = `${Math.max(0, Math.min(innerWidth - 100, e.clientX - dx))}px`;
-        pane.style.top = `${Math.max(46, Math.min(innerHeight - 50, e.clientY - dy))}px`;
+        if (e.pointerId !== event.pointerId) return;
+        latest = e;
+        if (!dragging && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
+        if (!dragging) {
+          dragging = true;
+          if (!pane.classList.contains('floating')) floatPane(id, pane, header, button, {
+            left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+          });
+          pane.style.zIndex = String(++z);
+          header.classList.add('is-dragging');
+        }
+        if (!frame) frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (!latest) return;
+          pane.style.left = `${Math.max(0, Math.min(innerWidth - 100, latest.clientX - offset.x))}px`;
+          pane.style.top = `${Math.max(46, Math.min(innerHeight - 50, latest.clientY - offset.y))}px`;
+        });
+        e.preventDefault();
       };
-      const end = () => { header.removeEventListener('pointermove', move); header.removeEventListener('pointerup', end); persist(); };
-      header.addEventListener('pointermove', move);
-      header.addEventListener('pointerup', end, { once: true });
-      event.preventDefault();
+      const end = (e) => {
+        if (e.pointerId !== event.pointerId) return;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        window.removeEventListener('pointercancel', end);
+        header.classList.remove('is-dragging');
+        if (frame) cancelAnimationFrame(frame);
+        if (dragging) { persist(); event.preventDefault(); }
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
     });
     if (saved[id]) floatPane(id, pane, header, button);
   }

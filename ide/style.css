@@ -251,7 +251,10 @@ kbd {
 .pane-actions, .pane-head-actions { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .pane-toggle { padding: 3px 7px; border: 1px solid var(--border-bright); border-radius: 4px; background: var(--bg-surface); color: var(--text); font: 10px 'Inter',sans-serif; text-transform: none; letter-spacing: 0; }
 .pane-toggle:hover { background: var(--bg-hover); color: var(--accent-bright); }
+.pane-grip { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 20px; color: var(--text-dim); cursor: grab; font-size: 16px; line-height: 1; touch-action: none; user-select: none; }
+.pane-grip:hover { color: var(--accent-bright); }
 .pane-drag-handle { cursor: grab; touch-action: none; }
+.pane-drag-handle.is-dragging, .pane-drag-handle.is-dragging .pane-grip { cursor: grabbing; }
 .floating { position: fixed !important; display: flex !important; min-width: 220px; min-height: 140px; max-width: calc(100vw - 12px); max-height: calc(100vh - 52px); resize: both; overflow: auto !important; border: 1px solid var(--border-bright); border-radius: 6px; box-shadow: 0 14px 42px #0009; }
 .floating .pane-drag-handle { cursor: grab; user-select: none; }
 .floating .pane-drag-handle:active { cursor: grabbing; }
