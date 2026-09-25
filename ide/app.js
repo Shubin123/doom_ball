@@ -215,51 +215,34 @@ async function searchSources() {
   const run = ++sourceSearchRun;
   resultsEl.textContent = '';
   if (!query) { status.textContent = 'Enter a word or regular expression.'; return; }
-  let pattern;
-  try {
-    const source = $('source-search-regex').checked ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    pattern = new RegExp(source, 'gi');
-  } catch (error) { status.textContent = `Invalid regular expression: ${error.message}`; return; }
-
   const files = state.files.slice();
   const localDrafts = drafts();
-  const found = [];
-  let next = 0, completed = 0, failed = 0;
-  const maxResults = 1000;
   status.textContent = `Searching ${files.length} source files…`;
-  const worker = async () => {
-    while (next < files.length && found.length < maxResults) {
-      if (run !== sourceSearchRun) return;
-      const path = files[next++];
-      try {
-        let text = state.open.get(path)?.doc.getValue() ?? localDrafts[path];
-        if (text == null) {
-          if (state.server) {
-            const response = await fetch(`api/file?path=${encodeURIComponent(path)}`);
-            if (!response.ok) throw new Error(`${response.status}`);
-            text = (await response.json()).content;
-          } else {
-            const response = await fetch(path);
-            if (!response.ok) throw new Error(`${response.status}`);
-            text = await response.text();
-          }
+  let resultSet;
+  try {
+    resultSet = await searchSourceFiles(files, query, {
+      regex: $('source-search-regex').checked,
+      isCurrent: () => run === sourceSearchRun,
+      readFile: async (path) => {
+        const opened = state.open.get(path);
+        if (opened) return opened.doc.getValue();
+        if (localDrafts[path] != null) return localDrafts[path];
+        if (state.server) {
+          const response = await fetch(`api/file?path=${encodeURIComponent(path)}`);
+          if (!response.ok) throw new Error(`${response.status}`);
+          return (await response.json()).content;
         }
-        const lines = text.split(/\r?\n/);
-        for (let i = 0; i < lines.length && found.length < maxResults; i++) {
-          pattern.lastIndex = 0;
-          const match = pattern.exec(lines[i]);
-          if (match) found.push({ path, line: i + 1, column: match.index, snippet: lines[i].trim() || lines[i] });
-        }
-      } catch { failed++; }
-      completed++;
-      if (run === sourceSearchRun && (completed % 20 === 0 || completed === files.length)) {
-        status.textContent = `Searching… ${completed}/${files.length} files · ${found.length} matches`;
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`${response.status}`);
+        return response.text();
+      },
+      onProgress: ({ completed, total, matches }) => {
+        if (completed % 20 === 0 || completed === total) status.textContent = `Searching… ${completed}/${total} files · ${matches} matches`;
+      },
+    });
+  } catch (error) { status.textContent = `Search error: ${error.message}`; return; }
   if (run !== sourceSearchRun) return;
-  for (const result of found) {
+  for (const result of resultSet.matches) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'search-result'; button.setAttribute('role', 'listitem');
     const path = document.createElement('span'); path.className = 'search-result-path'; path.textContent = `${result.path}:${result.line}`;
@@ -274,9 +257,9 @@ async function searchSources() {
     });
     resultsEl.appendChild(button);
   }
-  status.textContent = `${found.length}${found.length === maxResults ? '+' : ''} matches in ${completed} files` +
-    (failed ? ` · ${failed} files could not be read` : '') +
-    (found.length === maxResults ? ' · result limit reached' : '');
+  status.textContent = `${resultSet.matches.length}${resultSet.limitReached ? '+' : ''} matches in ${resultSet.completed} files` +
+    (resultSet.failed ? ` · ${resultSet.failed} files could not be read` : '') +
+    (resultSet.limitReached ? ' · result limit reached' : '');
 }
 $('source-search-form').addEventListener('submit', (event) => { event.preventDefault(); searchSources(); });
 
