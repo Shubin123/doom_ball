@@ -164,6 +164,6 @@ tests/                      regression suite
 
 The DOOM engine is GPLv2 (`engine/doomgeneric/LICENSE`). `sim/doom1.wad` is
 the unmodified DOOM shareware v1.9 IWAD, which may be freely redistributed.
-CMSIS is Apache-2.0, the STM32 HAL and device headers are BSD-3-Clause, and
-FatFs uses its own BSD-style licence; each licence file is in
-`firmware/third_party/`.
+CMSIS and the STM32 device headers are Apache-2.0, the STM32H7 HAL is
+BSD-3-Clause, and FatFs uses its own BSD-style licence; each licence file is
+in `firmware/third_party/`.
