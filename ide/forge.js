@@ -971,6 +971,79 @@ function highlightTree() {
   document.querySelectorAll('.tree .file').forEach((el) => el.classList.toggle('active', el.dataset.path === state.active));
 }
 
+let sourceSearchRun = 0;
+async function searchSources() {
+  const query = $('source-search-query').value;
+  const resultsEl = $('source-search-results');
+  const status = $('source-search-status');
+  const run = ++sourceSearchRun;
+  resultsEl.textContent = '';
+  if (!query) { status.textContent = 'Enter a word or regular expression.'; return; }
+  let pattern;
+  try {
+    const source = $('source-search-regex').checked ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pattern = new RegExp(source, 'gi');
+  } catch (error) { status.textContent = `Invalid regular expression: ${error.message}`; return; }
+
+  const files = state.files.slice();
+  const localDrafts = drafts();
+  const found = [];
+  let next = 0, completed = 0, failed = 0;
+  const maxResults = 1000;
+  status.textContent = `Searching ${files.length} source files…`;
+  const worker = async () => {
+    while (next < files.length && found.length < maxResults) {
+      if (run !== sourceSearchRun) return;
+      const path = files[next++];
+      try {
+        let text = state.open.get(path)?.doc.getValue() ?? localDrafts[path];
+        if (text == null) {
+          if (state.server) {
+            const response = await fetch(`api/file?path=${encodeURIComponent(path)}`);
+            if (!response.ok) throw new Error(`${response.status}`);
+            text = (await response.json()).content;
+          } else {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`${response.status}`);
+            text = await response.text();
+          }
+        }
+        const lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length && found.length < maxResults; i++) {
+          pattern.lastIndex = 0;
+          const match = pattern.exec(lines[i]);
+          if (match) found.push({ path, line: i + 1, column: match.index, snippet: lines[i].trim() || lines[i] });
+        }
+      } catch { failed++; }
+      completed++;
+      if (run === sourceSearchRun && (completed % 20 === 0 || completed === files.length)) {
+        status.textContent = `Searching… ${completed}/${files.length} files · ${found.length} matches`;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, files.length) }, worker));
+  if (run !== sourceSearchRun) return;
+  for (const result of found) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'search-result'; button.setAttribute('role', 'listitem');
+    const path = document.createElement('span'); path.className = 'search-result-path'; path.textContent = `${result.path}:${result.line}`;
+    const snippet = document.createElement('span'); snippet.className = 'search-result-snippet'; snippet.textContent = result.snippet;
+    button.append(path, snippet);
+    button.addEventListener('click', async () => {
+      await openFile(result.path);
+      if (state.active !== result.path || !cm) return;
+      cm.setCursor({ line: result.line - 1, ch: result.column });
+      cm.scrollIntoView({ line: result.line - 1, ch: result.column }, 80);
+      cm.focus();
+    });
+    resultsEl.appendChild(button);
+  }
+  status.textContent = `${found.length}${found.length === maxResults ? '+' : ''} matches in ${completed} files` +
+    (failed ? ` · ${failed} files could not be read` : '') +
+    (found.length === maxResults ? ' · result limit reached' : '');
+}
+$('source-search-form').addEventListener('submit', (event) => { event.preventDefault(); searchSources(); });
+
 let cm = null;
 function editor() {
   if (!cm) {

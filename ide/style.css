@@ -99,6 +99,18 @@ button { cursor: pointer; }
 .example-card strong { color: var(--text-bright); font-size: 13px; }
 .example-card p { margin: 6px 0 8px; color: var(--text-dim); font-size: 11px; }
 .example-targets { display: inline-block; padding: 2px 6px; border-radius: 9px; background: var(--accent-dim); color: var(--accent); font: 10px 'JetBrains Mono', monospace; }
+.source-search { padding: 0 10px 8px; }
+.source-search form { display: flex; gap: 5px; align-items: center; }
+.source-search form > input[type="search"] { min-width: 0; flex: 1; padding: 6px 7px; border: 1px solid var(--border-bright); border-radius: 4px; background: var(--bg-deep); font: 11px 'JetBrains Mono', monospace; }
+.source-search form > label { display: flex; align-items: center; gap: 3px; color: var(--text-dim); font-size: 10px; }
+.source-search form > label input { margin: 0; accent-color: var(--accent); }
+.source-search .btn { padding: 5px 8px; }
+.search-status { min-height: 16px; padding-top: 5px; color: var(--text-dim); font-size: 10px; }
+.search-results { max-height: 132px; overflow: auto; }
+.search-result { display: block; width: 100%; padding: 4px 5px; overflow: hidden; border: 0; border-radius: 3px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.search-result:hover { background: var(--bg-hover); }
+.search-result-path { display: block; overflow: hidden; color: var(--accent-bright); font: 10px 'JetBrains Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-snippet { display: block; overflow: hidden; color: var(--text-dim); font: 10px 'JetBrains Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .file-list-head { position: sticky; top: 0; background: var(--bg-panel); z-index: 1; }
 .note { padding: 10px 12px; font-size: 12px; color: var(--text-dim); }
 .note code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--bg-surface); padding: 1px 4px; border-radius: 3px; }

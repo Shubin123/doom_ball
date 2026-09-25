@@ -43,6 +43,15 @@
         <p id="example-description">Playable DOOM on the H743.</p>
         <span id="example-targets" class="example-targets"></span>
       </section>
+      <section class="source-search" aria-label="Search source files">
+        <form id="source-search-form">
+          <input id="source-search-query" type="search" placeholder="Search source…" aria-label="Search source files" autocomplete="off">
+          <label title="Treat the search as a JavaScript regular expression"><input id="source-search-regex" type="checkbox"> Regex</label>
+          <button class="btn" type="submit">Find</button>
+        </form>
+        <div id="source-search-status" class="search-status" aria-live="polite">Search all project source files.</div>
+        <div id="source-search-results" class="search-results" role="list"></div>
+      </section>
       <div class="panel-head file-list-head">Project files</div>
       <div id="tree" class="tree"></div>
     </aside>
