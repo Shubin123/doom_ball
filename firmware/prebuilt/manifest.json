@@ -12,7 +12,7 @@
     },
     {
      "region": "FLASH",
-     "used": 334180,
+     "used": 334188,
      "size": 2097152,
      "overflow": 0
     },
@@ -47,7 +47,7 @@
     416672,
     294912
    ],
-   "binarySize": 334180,
+   "binarySize": 334188,
    "errors": []
   },
   "h743-blinky": {
