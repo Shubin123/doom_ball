@@ -10,21 +10,32 @@ STM32H743.
 | STM32H743IITx | Cortex-M7, 400 MHz | 2 MB | 1 MB | runs (707 KB zone heap) |
 | STM32F103C8T6 (Blue Pill) | Cortex-M3, 72 MHz | 64 KB | 20 KB | does not fit: the linker reports flash 467 % and RAM 4872 % |
 
-## Quick start
+## Online demo and local IDE
+
+GitHub Pages serves the complete static demo: the DOOM WebAssembly game, editable
+source browser, linker reports, and prebuilt firmware images. Source edits are
+saved as drafts in the current browser. Flashing a prebuilt image works from
+Chrome or Edge on an HTTPS Pages URL. Pages is static hosting, so builds and
+file saves into a checkout run locally with the Node server below.
+
+On every push to `main`, `.github/workflows/pages.yml` deploys the demo through
+GitHub Pages. Enable **Settings → Pages → Build and deployment → GitHub Actions**
+once in the repository settings.
 
 ```sh
-python3 server/forge_server.py          # then open http://localhost:8732/
+node server/forge_server.mjs            # then open http://localhost:8732/
 ```
 
-The server finds `arm-none-eabi-gcc` on `PATH`, in `ARM_GCC_PATH`, or under
-`~/.local/toolchains/*/bin` ([Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)).
-Without the server (on GitHub Pages, or by opening `index.html` straight
-from disk) the IDE still works read-only: it shows the prebuilt firmware's
-linker report, runs the emulator and flashes `firmware/prebuilt/*.bin`.
-Because browsers block `fetch()` on `file://`, the wasm is embedded in
-`sim/doom.js`, and the WAD, prebuilt images and file list also ship as
-script files (`tools/embed_assets.py`). The IDE's modules are bundled into
-`ide/forge.js` (`tools/bundle_ide.py`); rerun that after editing `ide/`.
+The Node server serves the IDE, saves edited files to the checkout, and invokes
+`make` with `arm-none-eabi-gcc` (on `PATH` or in `ARM_GCC_PATH`). Install the
+[Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads)
+to enable firmware builds. The checked-in `ide/forge.js` bundle is regenerated
+with `node tools/bundle_ide.mjs` after editing `ide/`.
+
+The static demo cannot compile changed source or write commits to GitHub. Use
+the Node server for those operations; on Pages, edits persist only as local
+browser drafts. The prebuilt H743 DOOM and blinky images, plus Blue Pill blinky,
+are available for flashing directly from the static demo.
 
 Flashing and the serial console use Web Serial and WebUSB, which need Chrome
 or Edge.
@@ -35,7 +46,7 @@ or Edge.
   port, GPLv2) with the shareware `DOOM1.WAD`. The same sources are compiled
   to WebAssembly for the emulator and to ARM for the H743.
 - **Builds**: the IDE's Build button runs `make` in `firmware/` through
-  `server/forge_server.py`, then shows the compiler output and the
+  `server/forge_server.mjs`, then shows the compiler output and the
   `ld --print-memory-usage` report for every memory region.
 - **Memory budget**: the emulator runs DOOM with its heap split into the
   same banks, at the same sizes, as the H743 firmware link. On the Blue Pill
@@ -136,7 +147,8 @@ tests/run_all.sh
   USART1, SPI1 and SDMMC1 modelled. The SD card image holds `DOOM1.WAD`, and
   the ILI9341 SPI stream is decoded into PNG frames. The firmware boots,
   mounts FAT, loads the WAD, and starts and plays E1M1 through its UART key
-  protocol. Requires `pip install -r tests/emu/requirements.txt`.
+  protocol. This optional emulator test uses Python tooling; it is not needed
+  by the online demo, local IDE server, firmware, or flashing path.
 
 ![Frames decoded from the H743 firmware's SPI output in the emulator](docs/h743-firmware-emulated.png)
 
@@ -151,7 +163,7 @@ H743). Board-specific parts (pins, LCD, SD socket) may need adjusting in
 ```
 index.html, ide/            web IDE (CodeMirror editor, emulator, flashing, serial)
 ide/flash/                  AN3155 (Web Serial) and DfuSe (WebUSB) flashers
-server/forge_server.py      local build server (stdlib Python)
+server/forge_server.mjs     local IDE/build server (Node.js)
 engine/doomgeneric/         DOOM engine (GPLv2)
 engine/platform/dg_web.c    emulator platform layer
 sim/                        WebAssembly build (sim/build.sh), DOOM1.WAD (+ .js copy)
@@ -160,7 +172,7 @@ firmware/targets/h743/      H743 board, LCD, SD, syscalls, DOOM platform, linker
 firmware/targets/bluepill/  Blue Pill board, syscalls, linker script
 firmware/projects/blinky/   blinky for both boards
 firmware/third_party/       CMSIS, STM32H7 HAL subset, FatFs
-firmware/prebuilt/          built images + manifest (tools/build_prebuilt.py)
+firmware/prebuilt/          built images + manifest
 tests/                      regression suite
 ```
 
