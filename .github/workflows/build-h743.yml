@@ -34,12 +34,15 @@ jobs:
         run: |
           set -o pipefail
           make -C firmware -j2 TARGET=h743 PROJECT='${{ inputs.project || 'doom' }}' 2>&1 | tee h743-build.log
+      - name: Collect flashable build
+        shell: bash
+        run: |
+          output="firmware/build/h743-${{ inputs.project || 'doom' }}"
+          mkdir -p h743-artifact
+          cp "$output/firmware.bin" "$output/firmware.hex" "$output/firmware.map" h743-artifact/
+          cp h743-build.log h743-artifact/
       - uses: actions/upload-artifact@v4
         with:
           name: h743-${{ inputs.project || 'doom' }}-${{ github.sha }}
-          path: |
-            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.bin
-            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.hex
-            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.map
-            h743-build.log
+          path: h743-artifact/
           if-no-files-found: error
