@@ -2,7 +2,7 @@
 """
 Builds every target/project combination with the real toolchain and writes
 firmware/prebuilt/<target>-<project>.bin plus manifest.json (linker memory
-report, DOOM zone banks, result). The IDE uses these when it is opened
+report, DOOM zone banks, result) and ide/files.json (source listing). The IDE uses these when it is opened
 without the build server, e.g. from GitHub Pages.
 """
 import base64
@@ -33,6 +33,9 @@ def main():
             print('%-16s %s' % (key, 'ok' if r['ok'] else 'FAILED (%s)' % '; '.join(errors[-2:])))
     with open(os.path.join(OUT, 'manifest.json'), 'w') as f:
         json.dump(manifest, f, indent=1)
+    # Source listing for the IDE's read-only mode (no server).
+    with open(os.path.join(forge_server.ROOT, 'ide', 'files.json'), 'w') as f:
+        json.dump({'files': forge_server.file_tree()}, f, indent=0)
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@
     },
     {
      "region": "FLASH",
-     "used": 334172,
+     "used": 334180,
      "size": 2097152,
      "overflow": 0
     },
@@ -47,7 +47,7 @@
     416672,
     294912
    ],
-   "binarySize": 334172,
+   "binarySize": 334180,
    "errors": []
   },
   "h743-blinky": {
@@ -104,9 +104,9 @@
    "memory": [
     {
      "region": "FLASH",
-     "used": 306188,
+     "used": 306196,
      "size": 65536,
-     "overflow": 240652
+     "overflow": 240660
     },
     {
      "region": "RAM",
@@ -121,7 +121,7 @@
    "errors": [
     "firmware/build/bluepill-doom/firmware.elf section `.text' will not fit in region `FLASH'",
     "firmware/build/bluepill-doom/firmware.elf section `.data' will not fit in region `RAM'",
-    "region `FLASH' overflowed by 240652 bytes",
+    "region `FLASH' overflowed by 240660 bytes",
     "region `RAM' overflowed by 977240 bytes"
    ]
   },
