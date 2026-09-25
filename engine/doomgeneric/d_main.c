@@ -196,7 +196,12 @@ void D_Display (void)
     }
 
     // save the current screen if about to wipe
+#ifndef DG_NO_WIPE
     if (gamestate != wipegamestate)
+#else
+    // The melt wipe needs two extra 64 KB screen copies; MCU ports skip it.
+    if (0)
+#endif
 		{
 		wipe = true;
 		wipe_StartScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);

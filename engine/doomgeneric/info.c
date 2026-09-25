@@ -124,6 +124,11 @@ void A_SpawnFly();
 void A_BrainExplode();
 
 
+// MCU ports: the state table is never written without DeHackEd, so keep it
+// in flash instead of copying 27 KB into RAM.
+#ifdef DG_STATES_IN_FLASH
+__attribute__((section(".rodata.states")))
+#endif
 state_t	states[NUMSTATES] = {
     {SPR_TROO,0,-1,{NULL},S_NULL,0,0},	// S_NULL
     {SPR_SHTG,4,0,{A_Light0},S_NULL,0,0},	// S_LIGHTDONE

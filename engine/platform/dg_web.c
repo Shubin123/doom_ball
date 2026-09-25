@@ -37,6 +37,13 @@ EMSCRIPTEN_KEEPALIVE void dg_set_zone_size(int bytes)
     zone_bytes = bytes;
 }
 
+/* Walks the zone block list; I_Error()s if it is corrupted. */
+EMSCRIPTEN_KEEPALIVE void dg_check_heap(void)
+{
+    extern void Z_CheckHeap(void);
+    Z_CheckHeap();
+}
+
 EMSCRIPTEN_KEEPALIVE uint32_t *dg_frame_ptr(void)
 {
     return rgba;
@@ -51,6 +58,29 @@ byte *DG_ZoneBase(int *size)
     }
     *size = zone_bytes;
     return zone_mem;
+}
+
+/* Optional holes inside the zone (test hook: simulates separate RAM banks
+ * such as the H743's DTCM / AXI SRAM / SRAM1-3). Ascending offsets. */
+#define MAX_GAPS 4
+static int gap_offset[MAX_GAPS], gap_bytes[MAX_GAPS], num_gaps;
+
+EMSCRIPTEN_KEEPALIVE void dg_add_zone_gap(int offset, int bytes)
+{
+    if (num_gaps < MAX_GAPS) {
+        gap_offset[num_gaps] = offset;
+        gap_bytes[num_gaps] = bytes;
+        num_gaps++;
+    }
+}
+
+int DG_ZoneGap(int index, byte **start, byte **end)
+{
+    if (index >= num_gaps)
+        return 0;
+    *start = zone_mem + gap_offset[index];
+    *end = zone_mem + gap_offset[index] + gap_bytes[index];
+    return 1;
 }
 
 void DG_Init(void) {}
@@ -89,6 +119,8 @@ void DG_SetWindowTitle(const char *title) { (void)title; }
 int main(int argc, char **argv)
 {
     doomgeneric_Create(argc, argv);
-    emscripten_set_main_loop(doomgeneric_Tick, 35, 1);
+    /* Headless test harness drives doomgeneric_Tick() itself. */
+    if (!EM_ASM_INT({ return Module.noMainLoop ? 1 : 0; }))
+        emscripten_set_main_loop(doomgeneric_Tick, 35, 1);
     return 0;
 }
