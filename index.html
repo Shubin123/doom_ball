@@ -69,7 +69,7 @@
             </label>
           </div>
           <div class="hint">
-            <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> move · <kbd>Ctrl</kbd> fire ·
+            <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> / <kbd>WASD</kbd> move · <kbd>Ctrl</kbd>/<kbd>F</kbd> fire ·
             <kbd>Space</kbd> use · <kbd>Enter</kbd>/<kbd>Esc</kbd> menu · <kbd>Shift</kbd> run
           </div>
           <div class="hint" id="emu-note"></div>
@@ -106,6 +106,10 @@
   <form method="dialog">
     <h3>Flash <span id="fd-what"></span></h3>
     <div id="fd-image" class="hint"></div>
+    <label class="custom-firmware">Flash a rebuilt image (.bin)
+      <input id="custom-firmware" type="file" accept=".bin,application/octet-stream">
+      <small>Choose firmware.bin from the H743 GitHub Actions build artifact. Leave empty to flash the shipped image.</small>
+    </label>
     <div class="methods">
       <label class="method" id="m-uart">
         <input type="radio" name="method" value="uart" checked>

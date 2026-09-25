@@ -1,0 +1,45 @@
+name: Build H743 firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'engine/**'
+      - 'firmware/Makefile'
+      - 'firmware/targets/h743/**'
+      - '.github/workflows/build-h743.yml'
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Firmware project for the H743
+        type: choice
+        options: [doom, blinky]
+        default: doom
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi make
+      - name: Build and report memory usage
+        shell: bash
+        run: |
+          set -o pipefail
+          make -C firmware -j2 TARGET=h743 PROJECT='${{ inputs.project || 'doom' }}' 2>&1 | tee h743-build.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: h743-${{ inputs.project || 'doom' }}-${{ github.sha }}
+          path: |
+            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.bin
+            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.hex
+            firmware/build/h743-${{ inputs.project || 'doom' }}/firmware.map
+            h743-build.log
+          if-no-files-found: error

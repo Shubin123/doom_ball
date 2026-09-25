@@ -22,6 +22,18 @@ On every push to `main`, `.github/workflows/pages.yml` deploys the demo through
 GitHub Pages. Enable **Settings → Pages → Build and deployment → GitHub Actions**
 once in the repository settings.
 
+**Play**: Run starts directly in E1M1. Click the game screen, then use the
+arrow keys or WASD to move, Ctrl or F to fire, Space to use, and Shift to run.
+
+**Rebuild and flash H743 changes**: commit the firmware or engine changes, then
+use the IDE's **Build** button to open the H743 GitHub Actions workflow. Choose
+DOOM or Blinky under **Run workflow**. Each build uploads `firmware.bin`, the
+Intel HEX file, the linker map, and the compiler/memory report as a downloadable
+artifact. In **Flash…**, select the downloaded `.bin` to flash that exact build
+over UART or USB DFU. Pages edits are browser drafts; commit the changed source
+to GitHub before rebuilding. Pushes that change H743 firmware or engine files
+also start the DOOM build automatically.
+
 ```sh
 node server/forge_server.mjs            # then open http://localhost:8732/
 ```
@@ -32,10 +44,11 @@ The Node server serves the IDE, saves edited files to the checkout, and invokes
 to enable firmware builds. The checked-in `ide/forge.js` bundle is regenerated
 with `node tools/bundle_ide.mjs` after editing `ide/`.
 
-The static demo cannot compile changed source or write commits to GitHub. Use
-the Node server for those operations; on Pages, edits persist only as local
-browser drafts. The prebuilt H743 DOOM and blinky images, plus Blue Pill blinky,
-are available for flashing directly from the static demo.
+The static demo cannot compile browser drafts or write commits to GitHub. On
+Pages, edits persist only as local browser drafts; commit source changes before
+using the H743 Actions rebuild. The Node server offers immediate builds and
+checkout saves when working locally. The prebuilt H743 DOOM and blinky images
+are also available for flashing directly from the static demo.
 
 Flashing and the serial console use Web Serial and WebUSB, which need Chrome
 or Edge.

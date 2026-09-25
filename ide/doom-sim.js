@@ -5,6 +5,8 @@
 
 export const DOOM_KEYS = {
   ArrowRight: 0xae, ArrowLeft: 0xac, ArrowUp: 0xad, ArrowDown: 0xaf,
+  w: 0xad, W: 0xad, s: 0xaf, S: 0xaf, a: 0xac, A: 0xac, d: 0xae, D: 0xae,
+  f: 0xa3, F: 0xa3,
   Control: 0xa3, ' ': 0xa2, Escape: 27, Enter: 13, Tab: 9, Backspace: 0x7f,
   Shift: 0x80 + 0x36, Alt: 0x80 + 0x38, ',': 0xa0, '.': 0xa1, '-': 0x2d, '=': 0x3d,
   F1: 0x80 + 0x3b, F2: 0x80 + 0x3c, F3: 0x80 + 0x3d, F4: 0x80 + 0x3e, F5: 0x80 + 0x3f,
@@ -102,7 +104,8 @@ export class DoomSim {
     this.log = () => log;
     this.lastErr = () => lastErr;
     try {
-      mod.callMain(['-iwad', '/DOOM1.WAD']);
+      // Start at E1M1 instead of leaving new players watching an attract demo.
+      mod.callMain(['-iwad', '/DOOM1.WAD', '-warp', '1']);
     } catch (e) {
       this.fail(e);
       return;

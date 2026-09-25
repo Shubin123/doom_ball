@@ -206,6 +206,8 @@ dialog h3 { margin: 0 0 8px; color: var(--text-bright); }
 dialog ol { padding-left: 18px; margin: 8px 0; }
 dialog li { margin: 3px 0; }
 dialog .methods { display: grid; gap: 8px; margin: 12px 0; }
+dialog .custom-firmware { display: grid; gap: 5px; margin-top: 12px; color: var(--text); font-size: 12px; }
+dialog .custom-firmware small { color: var(--text-dim); }
 dialog .method { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--border-bright); border-radius: 7px; cursor: pointer; }
 dialog .method:has(input:checked) { border-color: var(--accent); background: var(--accent-dim); }
 dialog .method.disabled { opacity: 0.45; pointer-events: none; }

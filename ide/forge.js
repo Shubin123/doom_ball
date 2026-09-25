@@ -398,6 +398,8 @@ class DfuSe {
 
 const DOOM_KEYS = {
   ArrowRight: 0xae, ArrowLeft: 0xac, ArrowUp: 0xad, ArrowDown: 0xaf,
+  w: 0xad, W: 0xad, s: 0xaf, S: 0xaf, a: 0xac, A: 0xac, d: 0xae, D: 0xae,
+  f: 0xa3, F: 0xa3,
   Control: 0xa3, ' ': 0xa2, Escape: 27, Enter: 13, Tab: 9, Backspace: 0x7f,
   Shift: 0x80 + 0x36, Alt: 0x80 + 0x38, ',': 0xa0, '.': 0xa1, '-': 0x2d, '=': 0x3d,
   F1: 0x80 + 0x3b, F2: 0x80 + 0x3c, F3: 0x80 + 0x3d, F4: 0x80 + 0x3e, F5: 0x80 + 0x3f,
@@ -495,7 +497,8 @@ class DoomSim {
     this.log = () => log;
     this.lastErr = () => lastErr;
     try {
-      mod.callMain(['-iwad', '/DOOM1.WAD']);
+      // Start at E1M1 instead of leaving new players watching an attract demo.
+      mod.callMain(['-iwad', '/DOOM1.WAD', '-warp', '1']);
     } catch (e) {
       this.fail(e);
       return;
@@ -618,8 +621,8 @@ async function detectServer() {
     s.innerHTML = '<span class="dot warn"></span><span>Pages demo · local drafts · prebuilt firmware</span>';
     s.title = 'Source edits are saved in this browser. Run the Node build server locally to compile and write to the checkout.';
   }
-  $('btn-build').disabled = !state.server;
-  $('btn-build').title = state.server ? 'Build (Ctrl+B)' : 'Run node server/forge_server.mjs in a local checkout to build';
+  $('btn-build').disabled = false;
+  $('btn-build').title = state.server ? 'Build (Ctrl+B)' : 'Build committed H743 sources with GitHub Actions';
 }
 
 // Prebuilt manifest + images as a script (fallback when fetch is blocked).
@@ -821,7 +824,17 @@ $('btn-save').addEventListener('click', saveAll);
 
 // ------------------------------------------------------------ build --
 async function build() {
-  if (!state.server) return;
+  if (!state.server) {
+    showTerm('build');
+    if ($('target').value !== 'h743') {
+      line('build', 'The online rebuild workflow targets the STM32H743. Select that board to build here.', 'warn');
+      return;
+    }
+    line('build', 'Opening the H743 GitHub Actions build. It compiles committed repository files; browser drafts are not uploaded.', 'warn');
+    line('build', 'Commit or push source edits first. In Actions, choose Run workflow and select DOOM or Blinky. Download firmware.bin from the finished run, then choose it in Flash…', 'dim');
+    window.open('https://github.com/Shubin123/doom_ball/actions/workflows/build-h743.yml', '_blank', 'noopener');
+    return;
+  }
   await saveAll();
   const [target, project] = [$('target').value, $('project').value];
   showTerm('build');
@@ -1102,6 +1115,11 @@ $('btn-flash').addEventListener('click', async () => {
     line('flash', 'No firmware image: build first.', 'err');
     return;
   }
+  if (!img.bytes.length || img.bytes.length > t.flash) {
+    showTerm('flash');
+    line('flash', `Firmware image is ${kb(img.bytes.length)}; ${t.name} has ${kb(t.flash)} flash.`, 'err');
+    return;
+  }
   $('fd-what').textContent = `${$('project').selectedOptions[0].text} → ${t.name}`;
   $('fd-image').textContent = `${kb(img.bytes.length)} from ${img.from}`;
   $('m-dfu').classList.toggle('disabled', !t.dfu);
@@ -1115,9 +1133,30 @@ $('btn-flash').addEventListener('click', async () => {
   $('flash-dialog').onclose = () => {
     if ($('flash-dialog').returnValue === 'go') {
       const method = new FormData($('flash-dialog').querySelector('form')).get('method');
-      flash(method, img.bytes);
+      const file = $('custom-firmware').files[0];
+      if (!file) {
+        flash(method, img.bytes);
+        return;
+      }
+      file.arrayBuffer().then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        if (!bytes.length || bytes.length > t.flash) {
+          showTerm('flash');
+          line('flash', `Firmware image is ${kb(bytes.length)}; ${t.name} has ${kb(t.flash)} flash.`, 'err');
+          return;
+        }
+        flash(method, bytes);
+      }).catch((e) => {
+        showTerm('flash');
+        line('flash', `Could not read firmware image: ${e.message}`, 'err');
+      });
     }
   };
+});
+
+$('custom-firmware').addEventListener('change', () => {
+  const file = $('custom-firmware').files[0];
+  if (file) $('fd-image').textContent = `${kb(file.size)} from rebuilt image ${file.name}`;
 });
 
 async function flash(method, image) {
