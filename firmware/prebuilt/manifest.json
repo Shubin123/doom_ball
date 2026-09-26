@@ -12,7 +12,7 @@
     },
     {
      "region": "FLASH",
-     "used": 334188,
+     "used": 334232,
      "size": 2097152,
      "overflow": 0
     },
@@ -47,7 +47,7 @@
     416672,
     294912
    ],
-   "binarySize": 334188,
+   "binarySize": 334232,
    "errors": []
   },
   "h743-blinky": {
@@ -61,7 +61,7 @@
     },
     {
      "region": "FLASH",
-     "used": 13588,
+     "used": 13484,
      "size": 2097152,
      "overflow": 0
     },
@@ -96,7 +96,7 @@
     524288,
     294912
    ],
-   "binarySize": 13588,
+   "binarySize": 13484,
    "errors": []
   },
   "bluepill-doom": {
@@ -104,9 +104,9 @@
    "memory": [
     {
      "region": "FLASH",
-     "used": 306196,
+     "used": 306200,
      "size": 65536,
-     "overflow": 240660
+     "overflow": 240664
     },
     {
      "region": "RAM",
@@ -121,7 +121,7 @@
    "errors": [
     "firmware/build/bluepill-doom/firmware.elf section `.text' will not fit in region `FLASH'",
     "firmware/build/bluepill-doom/firmware.elf section `.data' will not fit in region `RAM'",
-    "region `FLASH' overflowed by 240660 bytes",
+    "region `FLASH' overflowed by 240664 bytes",
     "region `RAM' overflowed by 977240 bytes"
    ]
   },
@@ -130,7 +130,7 @@
    "memory": [
     {
      "region": "FLASH",
-     "used": 5136,
+     "used": 5128,
      "size": 65536,
      "overflow": 0
     },
@@ -143,7 +143,7 @@
    ],
    "zone": null,
    "zoneBanks": null,
-   "binarySize": 5136,
+   "binarySize": 5128,
    "errors": []
   },
   "f401-blinky": {
@@ -151,7 +151,7 @@
    "memory": [
     {
      "region": "FLASH",
-     "used": 5508,
+     "used": 5500,
      "size": 524288,
      "overflow": 0
     },
@@ -164,7 +164,7 @@
    ],
    "zone": null,
    "zoneBanks": null,
-   "binarySize": 5508,
+   "binarySize": 5500,
    "errors": []
   }
  }

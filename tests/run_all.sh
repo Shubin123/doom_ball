@@ -38,7 +38,7 @@ check $? "sim: 3000 tics with the H743 zone banks"
 
 step "IDE opened from disk (file://)"
 cp ide/forge.js /tmp/forge_bundle_before.js
-python3 tools/bundle_ide.py >/dev/null
+node tools/bundle_ide.mjs >/dev/null
 cmp -s ide/forge.js /tmp/forge_bundle_before.js
 check $? "ide/forge.js is up to date with the ide/ modules"
 CHROME=${CHROME:-$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)}

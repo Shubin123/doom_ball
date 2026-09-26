@@ -8,7 +8,19 @@ import os
 import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-ORDER = ['ide/flash/an3155.js', 'ide/flash/dfuse.js', 'ide/doom-sim.js', 'ide/app.js']
+ORDER = [
+    'ide/flash/an3155.js',
+    'ide/flash/dfuse.js',
+    'ide/flash/stlink.js',
+    'ide/doom-sim.js',
+    'ide/browser-build.js',
+    'ide/c-sim.js',
+    'ide/example-preview.js',
+    'ide/source-search.js',
+    'ide/clock-diagram.js',
+    'ide/window-manager.js',
+    'ide/app.js',
+]
 
 
 def main():
