@@ -746,8 +746,9 @@ function updateEmulator() {
   const banks = b && b.zoneBanks;
   overlay(`<strong>Real DOOM, same engine source as the firmware</strong>
     <span>Heap limited to the H743 build: ${banks ? banks.map(kb).join(' + ') : '?'} across DTCM, AXI SRAM and SRAM1-3.</span>
+    <span>Hardware note: DOOM1.WAD (~4.2 MB) exceeds the 2 MB internal flash and is read from a FAT32 microSD card via SDMMC1.</span>
     <span>Press Run, then click the screen for keyboard input.</span>`);
-  $('emu-note').textContent = banks ? `Zone heap: ${kb(banks.reduce((a, x) => a + x, 0))} in ${banks.length} banks.` : '';
+  $('emu-note').textContent = banks ? `Zone heap: ${kb(banks.reduce((a, x) => a + x, 0))} in ${banks.length} banks. Real board loads 4 MB DOOM1.WAD from microSD.` : '';
 }
 
 $('btn-run').addEventListener('click', async () => {
@@ -927,7 +928,9 @@ async function openFlashDialog() {
   const img = await flashImage();
   if (!img) return;
   $('fd-what').textContent = `${$('project').selectedOptions[0].text} → ${t.name}`;
-  $('fd-image').textContent = `${kb(img.bytes.length)} from ${img.from}`;
+  $('fd-image').textContent = $('project').value === 'doom'
+    ? `${kb(img.bytes.length)} from ${img.from} · Note: DOOM1.WAD (~4.2 MB) is stored separately on a FAT32 microSD card.`
+    : `${kb(img.bytes.length)} from ${img.from}`;
   $('m-dfu').classList.toggle('disabled', !t.dfu);
   $('m-stlink').classList.toggle('disabled', !t.stlink);
   $(t.stlink ? 'm-stlink' : 'm-uart').querySelector('input').checked = true;
@@ -1079,6 +1082,16 @@ function onSelection() {
   $('example-name').textContent = project?.name || 'Firmware example';
   $('example-description').textContent = project?.description || '';
   $('example-targets').textContent = project?.targets.map((target) => target.toUpperCase()).join(' · ') || '';
+  const hwNote = $('example-hardware-note');
+  if (hwNote) {
+    if (project?.hardwareNote) {
+      hwNote.innerHTML = `<strong>Hardware requirement:</strong> ${project.hardwareNote}`;
+      hwNote.hidden = false;
+    } else {
+      hwNote.textContent = '';
+      hwNote.hidden = true;
+    }
+  }
   if (state.files.includes(main)) openFile(main);
 }
 $('target').addEventListener('change', () => {

@@ -108,9 +108,19 @@ Default wiring (change it in `firmware/targets/h743/board_config.h`):
 Clocks come from the internal HSI (PLL at 400 MHz), so the crystal
 frequency doesn't matter.
 
-**SD card**: FAT32-format a microSD card and copy `sim/doom1.wad` to it as
-`DOOM1.WAD`. The WAD is 4 MB, more than the 2 MB of internal flash. Config
-and savegames are written to the card as well.
+### SD card & game asset storage
+
+The DOOM entry point (`firmware/targets/h743/dg_stm32.c`) boots and mounts a microSD card for several key architectural reasons:
+
+1. **WAD asset size exceeds on-chip Flash**: The STM32H743IIT6 microcontroller provides 2 MB of internal Flash memory. While the compiled DOOM executable fits comfortably (~327 KB), the game asset archive (`DOOM1.WAD`) is **~4.2 MB (4,196,020 bytes)**—over twice the capacity of the entire on-chip Flash. External storage is therefore mandatory.
+2. **Unmodified engine file I/O**: Upstream DOOM loads level geometry, sprites, sound lumps, and textures dynamically using standard C file operations (`fopen`, `fread`, `lseek`). The firmware implements standard POSIX filesystem calls (`_open`, `_read`, `_lseek`, `_close`) in `firmware/targets/h743/syscalls_fatfs.c` backed by FatFs, streaming lumps directly from `0:/DOOM1.WAD`.
+3. **Writable persistent storage**: Microcontroller flash cannot be arbitrarily written to at runtime without block-erase latencies that would freeze frame rendering. The FAT32 microSD filesystem allows the engine to save player settings (`default.cfg`) and game saves (`.savegame/doomsav*.dsg`).
+4. **Hardware interface**: The microSD socket connects to the STM32H743's hardware **SDMMC1** peripheral in 4-bit wide-bus mode at 25 MHz:
+   - Data `D0`–`D3`: `PC8`–`PC11`
+   - Clock `CK`: `PC12`
+   - Command `CMD`: `PD2`
+
+**Card preparation**: Format any microSD card as FAT32 and copy `sim/doom1.wad` to its root directory as `DOOM1.WAD`.
 
 **Playing**: use the push buttons, or open the serial monitor in the IDE,
 tick **keys → board**, click the emulator screen and play with the keyboard.

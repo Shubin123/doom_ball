@@ -10,6 +10,7 @@
     {
       "id": "doom", "name": "DOOM", "group": "games",
       "description": "Playable DOOM running on the H743 with a real 730 KB multi-bank heap. Build, change the C sources, and flash the result.",
+      "hardwareNote": "MicroSD required on hardware: DOOM1.WAD (~4.2 MB) exceeds the microcontroller's 2 MB on-chip flash. The engine reads game lumps, default.cfg, and savegames from a FAT32 microSD card via the SDMMC1 peripheral (PC8–PC12, PD2).",
       "entry": "firmware/targets/h743/dg_stm32.c", "targets": ["h743"], "emulator": true
     },
     {
