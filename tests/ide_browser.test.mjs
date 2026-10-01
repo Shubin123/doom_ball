@@ -1,74 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, createReadStream } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const chrome = process.env.CHROME || ['/usr/bin/google-chrome-stable','/usr/bin/google-chrome','/usr/bin/chromium',
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find(existsSync);
-
-// Serves the checkout, opens the static IDE in headless Chrome and hands the
-// test a DevTools evaluate / waitFor pair, the uncaught page errors and every
-// URL the page requested.
-async function withStaticIde(run) {
-  const profile = mkdtempSync(path.join(tmpdir(), 'forge-static-chrome-'));
-  const server = createServer((req, res) => {
-    let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    if (pathname === '/') pathname = '/index.html';
-    const filename = path.resolve(root, `.${pathname}`);
-    if (!filename.startsWith(root + path.sep) && filename !== path.join(root, 'index.html')) { res.writeHead(403).end(); return; }
-    const types = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.wad':'application/octet-stream' };
-    res.setHeader('Content-Type', types[path.extname(filename)] || 'application/octet-stream');
-    const stream = createReadStream(filename);
-    stream.on('error', () => { res.writeHead(404).end(); });
-    stream.pipe(res);
-  });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const port = server.address().port;
-  const debugPort = 20000 + Math.floor(Math.random() * 30000);
-  const proc = spawn(chrome, ['--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run',
-    `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, 'about:blank'], { stdio:'ignore' });
-  let ws;
-  try {
-    let page;
-    for (let attempt = 0; attempt < 80 && !page; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      try { page = (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((item) => item.type === 'page'); } catch {}
-    }
-    assert.ok(page, 'Chrome DevTools page became available');
-    ws = new WebSocket(page.webSocketDebuggerUrl);
-    await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once:true }); ws.addEventListener('error', reject, { once:true }); });
-    let nextId = 0;
-    const pending = new Map(), errors = [], requests = [];
-    ws.addEventListener('message', (event) => {
-      const message = JSON.parse(event.data);
-      if (message.id && pending.has(message.id)) { pending.get(message.id)(message); pending.delete(message.id); }
-      if (message.method === 'Network.requestWillBeSent') requests.push(message.params.request.url);
-      if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
-    });
-    const send = (method, params = {}) => new Promise((resolve) => { const id = ++nextId; pending.set(id, resolve); ws.send(JSON.stringify({ id, method, params })); });
-    const evaluate = async (expression) => (await send('Runtime.evaluate', { expression, awaitPromise:true, returnByValue:true })).result?.result?.value;
-    const waitFor = async (expression, timeout = 10000) => {
-      const end = Date.now() + timeout;
-      while (Date.now() < end) { const value = await evaluate(expression); if (value) return value; await new Promise((resolve) => setTimeout(resolve, 30)); }
-      throw new Error(`Timed out waiting for browser expression: ${expression}`);
-    };
-    await send('Runtime.enable');
-    await send('Network.enable');
-    await send('Page.enable');
-    await send('Page.navigate', { url:`http://127.0.0.1:${port}/` });
-    await waitFor(`document.readyState === 'complete' && document.querySelector('#project')?.options.length > 0`);
-    await run({ send, evaluate, waitFor, errors, requests });
-  } finally {
-    ws?.close(); proc.kill(); server.close();
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    rmSync(profile, { recursive:true, force:true, maxRetries:10, retryDelay:100 });
-  }
-}
+import { chrome, withStaticIde } from './chrome_ide.mjs';
 
 test('static IDE runs C source on virtual HAL and search opens real source matches', { skip: !chrome }, async () => {
   await withStaticIde(async ({ send, evaluate, waitFor, errors, requests }) => {
@@ -125,32 +57,6 @@ test('static IDE runs C source on virtual HAL and search opens real source match
       await waitFor(`document.querySelector('#term-build')?.textContent.includes('Build succeeded') || document.querySelector('#term-build')?.textContent.includes('Build failed')`, 180000);
       assert.equal(await evaluate(`document.querySelector('#term-build').textContent.includes('Build succeeded')`), true, await evaluate(`document.querySelector('#term-build').textContent`));
     }
-    assert.deepEqual(errors, []);
-  });
-});
-
-test('Nucleo-F401RE Flash button instant-flashes through the ST-Link with no dialog', { skip: !chrome }, async () => {
-  await withStaticIde(async ({ evaluate, waitFor, errors }) => {
-    // WebUSB backed by the simulated ST-Link + STM32F401RE, already allowed for this site.
-    await evaluate(`import('/tests/sim_stlink.mjs').then(({ SimStLink }) => {
-      window.simStLink = new SimStLink();
-      const usb = { getDevices: async () => [window.simStLink], requestDevice: async () => { throw new Error('picker shown'); }, addEventListener() {} };
-      Object.defineProperty(navigator, 'usb', { value: usb, configurable: true });
-      const t = document.querySelector('#target'); t.value = 'f401'; t.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    })`);
-    assert.equal(await evaluate(`document.querySelector('#project').value`), 'blinky');
-    assert.equal(await evaluate(`document.querySelector('#btn-flash').textContent`), 'Flash');
-    await evaluate(`document.querySelector('#btn-flash').click()`);
-    await waitFor(`/Flashed, verified and started|Flash failed/.test(document.querySelector('#term-flash').textContent)`);
-    const log = await evaluate(`document.querySelector('#term-flash').textContent`);
-    assert.match(log, /Flashed, verified and started 5\.4 KB/, log);
-    assert.match(log, /STM32F401xD\/E/);
-    assert.equal(await evaluate(`document.querySelector('#flash-dialog').open`), false, 'no dialog for instant flash');
-    assert.equal(await evaluate(`fetch('firmware/prebuilt/f401-blinky.bin').then((r) => r.arrayBuffer()).then((b) => {
-      const want = new Uint8Array(b), sim = window.simStLink;
-      return want.every((x, i) => sim.flash[i] === x) && sim.running && !sim.halted;
-    })`), true, 'simulated flash holds the prebuilt image and the core runs');
     assert.deepEqual(errors, []);
   });
 });

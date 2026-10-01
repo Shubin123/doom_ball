@@ -25,10 +25,18 @@ if [ $? -ne 0 ] && grep -q "region \`RAM' overflowed" /tmp/forge_build.log \
    && grep -q "region \`FLASH' overflowed" /tmp/forge_build.log; then r=0; else r=1; fi
 check $r "bluepill/doom is rejected by the linker (flash + RAM overflow)"
 
-step "flashing protocols (AN3155, DfuSe) against simulated bootloaders"
-node --test tests/ >/tmp/forge_flash.log 2>&1
+step "flashing: protocols against simulated probes and bootloaders, IDE end to end in headless Chrome"
+FORGE_HW= node --test tests/ >/tmp/forge_flash.log 2>&1   # hardware gets its own step below
 check $? "node --test tests/"
-grep -E "^. (pass|fail) " /tmp/forge_flash.log
+grep -E "^(✔|✖|﹣)" /tmp/forge_flash.log
+
+step "flashing real hardware through an ST-Link"
+if [ "${FORGE_HW:-}" = 1 ]; then
+  node --test tests/hw_flash.test.mjs
+  check $? "stlink.js and the IDE flash the connected board"
+else
+  echo "SKIP: set FORGE_HW=1 with an ST-Link and board connected (needs: npm i --no-save usb)"
+fi
 
 step "DOOM wasm build, headless"
 node tests/sim_headless.mjs 6144 700

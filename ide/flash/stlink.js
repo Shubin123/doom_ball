@@ -1,7 +1,8 @@
-// Instant flashing through the ST-Link debug probe on ST Nucleo / Discovery
-// boards, over WebUSB. No BOOT0 jumper, reset button or serial adapter: the
-// probe halts the core over SWD, erases and programs the STM32F4 flash with
-// a small routine running in SRAM, verifies, and resets into the new image.
+// Instant flashing through an ST-Link debug probe (the one on ST Nucleo /
+// Discovery boards, or a standalone STLINK-V3 wired to SWD), over WebUSB. No
+// BOOT0 jumper, reset button or serial adapter: the probe halts the core over
+// SWD, erases and programs the STM32F4 or STM32H7 flash with a small routine
+// running in SRAM, verifies, and resets into the new image.
 // The probe's USB serial port (the console) keeps working while it flashes.
 //
 // `usb` is a WebUSB USBDevice or anything with the same open /
@@ -26,14 +27,30 @@ export const F4_CHIPS = {
   0x431: 'STM32F411', 0x433: 'STM32F401xD/E', 0x441: 'STM32F412', 0x458: 'STM32F410',
 };
 
+// STM32H7 single-core parts: two banks of 128 KB sectors, bank 2 at 0x08100000.
+export const H7_CHIPS = { 0x450: 'STM32H74x/75x' };
+
 export function f4Sectors(flashSize) {
   const sizes = [16, 16, 16, 16, 64].map((k) => k * 1024);
   while (sizes.reduce((a, b) => a + b, 0) < Math.min(flashSize, 1024 * 1024)) sizes.push(128 * 1024);
   let start = 0x08000000;
-  return sizes.map((size, index) => { const s = { index, start, size }; start += size; return s; });
+  return sizes.map((size, index) => { const s = { index, start, size, bank: 0, snb: index }; start += size; return s; });
 }
 
-const CMD = { GET_VERSION: 0xf1, DEBUG: 0xf2, DFU: 0xf3, SWIM: 0xf4, GET_CURRENT_MODE: 0xf5 };
+// Each bank holds half the flash; on 1 MB parts bank 2 still starts at
+// 0x08100000, so the two halves are not contiguous.
+export function h7Sectors(flashSize) {
+  const perBank = Math.max(1, flashSize / 2 / (128 * 1024));
+  const out = [];
+  for (let bank = 0; bank < 2; bank++) {
+    for (let snb = 0; snb < perBank; snb++) {
+      out.push({ index: out.length, start: 0x08000000 + bank * 0x100000 + snb * 128 * 1024, size: 128 * 1024, bank, snb });
+    }
+  }
+  return out;
+}
+
+const CMD = { GET_VERSION: 0xf1, DEBUG: 0xf2, DFU: 0xf3, SWIM: 0xf4, GET_CURRENT_MODE: 0xf5, GET_TARGET_VOLTAGE: 0xf7, GET_VERSION_V3: 0xfb };
 const DBG = {
   READMEM_32: 0x07, WRITEMEM_32: 0x08, EXIT: 0x21, ENTER: 0x30, READ_IDCODES: 0x31,
   READREG: 0x33, WRITEREG: 0x34, WRITE32: 0x35, READ32: 0x36, LAST_RW_STATUS: 0x3b,
@@ -42,13 +59,9 @@ const DBG = {
 const MODE = { DFU: 0, MASS: 1, DEBUG: 2, SWIM: 3 };
 const OK = 0x80;
 
-const DHCSR = 0xe000edf0, DEMCR = 0xe000edfc, AIRCR = 0xe000ed0c;
+const CPUID = 0xe000ed00, DHCSR = 0xe000edf0, DEMCR = 0xe000edfc, AIRCR = 0xe000ed0c;
 const DBGKEY = 0xa05f0000, C_DEBUGEN = 1, C_HALT = 2, C_MASKINTS = 8, S_HALT = 1 << 17;
-const DBGMCU_IDCODE = 0xe0042000, F4_FLASH_SIZE = 0x1fff7a20;
-
-const FLASH = 0x40023c00, KEYR = FLASH + 0x04, SR = FLASH + 0x0c, CR = FLASH + 0x10;
-const SR_BSY = 1 << 16, SR_ERRORS = 0x1f2;
-const CR_PG = 1, CR_SER = 2, CR_PSIZE32 = 2 << 8, CR_STRT = 1 << 16, CR_LOCK = 1 << 31;
+const CORTEX_M7 = 0xc27;
 const KEY1 = 0x45670123, KEY2 = 0xcdef89ab;
 
 // ide/flash/stlink.js loader (arm-none-eabi-as): r0 = SRAM source, r1 = flash
@@ -62,8 +75,47 @@ export const F4_LOADER = Uint8Array.of(
   0x50, 0xf8, 0x04, 0x4b, 0x41, 0xf8, 0x04, 0x4b, 0xbf, 0xf3, 0x4f, 0x8f,
   0x1c, 0x68, 0x14, 0xf4, 0x80, 0x3f, 0xfb, 0xd1, 0x14, 0xf0, 0xf2, 0x0f,
   0x01, 0xd1, 0x01, 0x3a, 0xf0, 0xd1, 0x00, 0xbe);
-const LOADER_ADDR = 0x20000000, BUFFER_ADDR = 0x20000400, BUFFER_SIZE = 16 * 1024;
-const STACK_TOP = BUFFER_ADDR + BUFFER_SIZE + 0x400;
+
+// H7 loader: r0 = SRAM source, r1 = flash destination, r2 = 256-bit flash
+// word count, r3 = &FLASH->SRx, r6 = SR error mask. Writes 8 words, which
+// starts programming of one flash word, waits for QW, stops on an error,
+// then BKPT. Returns the flash words left in r2.
+//   loop: movs r5,#8
+//   copy: ldr r4,[r0],#4; str r4,[r1],#4; subs r5,#1; bne copy; dsb
+//   wait: ldr r4,[r3]; tst r4,#4; bne wait; tst r4,r6; bne done
+//         subs r2,#1; bne loop
+//   done: bkpt #0
+export const H7_LOADER = Uint8Array.of(
+  0x08, 0x25, 0x50, 0xf8, 0x04, 0x4b, 0x41, 0xf8, 0x04, 0x4b, 0x01, 0x3d,
+  0xf9, 0xd1, 0xbf, 0xf3, 0x4f, 0x8f, 0x1c, 0x68, 0x14, 0xf0, 0x04, 0x0f,
+  0xfb, 0xd1, 0x34, 0x42, 0x01, 0xd1, 0x01, 0x3a, 0xee, 0xd1, 0x00, 0xbe);
+
+const BUFFER_SIZE = 16 * 1024;
+
+// F4: one controller at 0x40023c00; loader in SRAM1.
+const F4 = {
+  name: 'STM32F4', chips: F4_CHIPS, idcode: 0xe0042000,
+  flashSize: (v) => (v >>> 16) * 1024, flashSizeAddr: 0x1fff7a20, sectors: f4Sectors,
+  ram: 0x20000000, loader: F4_LOADER, unit: 4,
+  keyr: () => 0x40023c04, sr: () => 0x40023c0c, cr: () => 0x40023c10, ccr: () => 0x40023c0c,
+  busy: 1 << 16, errors: 0x1f2, lock: 1 << 31,
+  erase: (s) => 2 | (2 << 8) | (s.snb << 3), start: 1 << 16,   // SER | PSIZE x32 | SNB, STRT
+  program: () => 1 | (2 << 8),                                  // PG | PSIZE x32
+};
+
+// H7: one controller per bank at 0x52002000 (+0x100 for bank 2); the loader
+// runs from AXI SRAM, which the Cortex-M7 can fetch instructions from.
+const H7 = {
+  name: 'STM32H7', chips: H7_CHIPS, idcode: 0x5c001000,
+  flashSize: (v) => (v & 0xffff) * 1024, flashSizeAddr: 0x1ff1e880, sectors: h7Sectors,
+  ram: 0x24000000, loader: H7_LOADER, unit: 32,
+  keyr: (bank) => 0x52002004 + bank * 0x100, sr: (bank) => 0x52002010 + bank * 0x100,
+  cr: (bank) => 0x5200200c + bank * 0x100, ccr: (bank) => 0x52002014 + bank * 0x100,
+  busy: 0x7, errors: 0x07ee0000, lock: 1,                      // BSY | WBNE | QW; WRPERR..DBECCERR
+  erase: (s, psize) => 4 | (psize << 4) | (s.snb << 8), start: 1 << 7,   // SER | PSIZE | SNB, START
+  program: (psize) => 2 | (psize << 4),                        // PG | PSIZE
+};
+
 const USB_BLOCK = 1024;   // stay inside the 1 KB SWD address auto-increment window
 
 const le32 = (v) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
@@ -128,6 +180,10 @@ export class StLink {
     const v = await this.cmd([CMD.GET_VERSION], 6);
     const word = (v[0] << 8) | v[1];
     this.version = { stlink: word >> 12, jtag: (word >> 6) & 0x3f, msd: word & 0x3f };
+    if (this.version.stlink >= 3) {
+      const v3 = await this.cmd([CMD.GET_VERSION_V3], 12);   // the V1 reply has no V3 JTAG version
+      this.version.jtag = v3[2];
+    }
     const name = this.version.stlink >= 3 ? `STLINK-V3 J${this.version.jtag}` : `ST-Link/V${this.version.stlink} J${this.version.jtag}`;
     if (this.version.stlink < 2 || (this.version.stlink === 2 && this.version.jtag < 15)) {
       throw new StLinkError(`${name} firmware is too old; update it with ST's ST-LinkUpgrade`);
@@ -154,13 +210,30 @@ export class StLink {
       if (!idcode) throw new StLinkError('no target answers on SWD; is the board powered and the CN2 jumpers fitted?');
     }
 
-    this.chipId = (await this.read32(DBGMCU_IDCODE)) & 0xfff;
-    this.chip = F4_CHIPS[this.chipId];
-    if (!this.chip) throw new StLinkError(`target ${hex(this.chipId, 3)} is not a supported STM32F4 (instant flash supports F401/F411/F4xx)`);
-    this.flashSize = ((await this.read32(F4_FLASH_SIZE)) >>> 16) * 1024;
-    this.sectors = f4Sectors(this.flashSize);
-    this.log(`${name}: ${this.chip} (id ${hex(this.chipId, 3)}), ${this.flashSize / 1024} KB flash, SWD ${hex(idcode)}`);
-    return { chipId: this.chipId, chip: this.chip, flashSize: this.flashSize, probe: name };
+    // DBGMCU moved on the Cortex-M7 parts, so pick the family by core first.
+    this.family = (((await this.read32(CPUID)) >>> 4) & 0xfff) === CORTEX_M7 ? H7 : F4;
+    this.chipId = (await this.read32(this.family.idcode)) & 0xfff;
+    this.chip = this.family.chips[this.chipId];
+    if (!this.chip) throw new StLinkError(`target ${hex(this.chipId, 3)} is not a supported ${this.family.name} (instant flash supports STM32F401/F411/F4xx and STM32H743/753)`);
+    this.flashSize = this.family.flashSize(await this.read32(this.family.flashSizeAddr));
+    this.sectors = this.family.sectors(this.flashSize);
+    this.volts = await this.targetVoltage();
+    // H7 erase/program parallelism follows the supply: x64 from 2.7 V, else x32.
+    this.psize = this.volts === null || this.volts >= 2.7 ? 3 : 2;
+    this.log(`${name}: ${this.chip} (id ${hex(this.chipId, 3)}), ${this.flashSize / 1024} KB flash, SWD ${hex(idcode)}` +
+      (this.volts === null ? '' : `, target ${this.volts.toFixed(2)} V`));
+    return { chipId: this.chipId, chip: this.chip, flashSize: this.flashSize, probe: name, volts: this.volts };
+  }
+
+  // Target supply as the probe measures it, or null if it cannot.
+  async targetVoltage() {
+    try {
+      const r = await this.cmd([CMD.GET_TARGET_VOLTAGE], 8);
+      const ref = u32(r, 0), adc = u32(r, 4);
+      return ref ? (2 * adc * 1.2) / ref : null;
+    } catch {
+      return null;
+    }
   }
 
   async enterSwd() {
@@ -247,12 +320,13 @@ export class StLink {
   }
 
   // -------------------------------------------------------------- flash --
-  async flashWait(what, timeoutMs) {
+  async flashWait(bank, what, timeoutMs) {
+    const f = this.family;
     const until = Date.now() + timeoutMs;
     for (;;) {
-      const sr = await this.read32(SR);
-      if (!(sr & SR_BSY)) {
-        if (sr & SR_ERRORS) throw new StLinkError(`flash ${what} failed (FLASH_SR ${hex(sr)})`);
+      const sr = await this.read32(f.sr(bank));
+      if (!(sr & f.busy)) {
+        if (sr & f.errors) throw new StLinkError(`flash ${what} failed (FLASH_SR ${hex(sr)})`);
         return;
       }
       if (Date.now() > until) throw new StLinkError(`flash ${what} timed out`);
@@ -260,63 +334,75 @@ export class StLink {
     }
   }
 
-  async unlock() {
-    if (!((await this.read32(CR)) & CR_LOCK)) return;
-    await this.write32(KEYR, KEY1);
-    await this.write32(KEYR, KEY2);
-    if ((await this.read32(CR)) & CR_LOCK) throw new StLinkError('flash stayed locked (read protection set?)');
+  async unlock(bank) {
+    const f = this.family;
+    if (!((await this.read32(f.cr(bank))) & f.lock)) return;
+    await this.write32(f.keyr(bank), KEY1);
+    await this.write32(f.keyr(bank), KEY2);
+    if ((await this.read32(f.cr(bank))) & f.lock) throw new StLinkError('flash stayed locked (read protection set?)');
   }
 
   async eraseSector(sector) {
-    await this.write32(CR, CR_SER | CR_PSIZE32 | (sector.index << 3));
-    await this.write32(CR, CR_SER | CR_PSIZE32 | (sector.index << 3) | CR_STRT);
-    await this.flashWait(`erase of sector ${sector.index}`, 10000);
+    const f = this.family, cr = f.cr(sector.bank), bits = f.erase(sector, this.psize);
+    await this.write32(cr, bits);
+    await this.write32(cr, bits | f.start);
+    await this.flashWait(sector.bank, `erase of sector ${sector.index}`, 20000);
   }
 
-  async program(addr, data) {
-    await this.writeMem(BUFFER_ADDR, data);
-    await this.writeReg(0, BUFFER_ADDR);
+  async program(bank, addr, data) {
+    const f = this.family, buffer = f.ram + 0x400;
+    await this.writeMem(buffer, data);
+    await this.writeReg(0, buffer);
     await this.writeReg(1, addr);
-    await this.writeReg(2, data.length / 4);
-    await this.writeReg(3, SR);
-    await this.writeReg(13, STACK_TOP);
-    await this.writeReg(15, LOADER_ADDR);
+    await this.writeReg(2, data.length / f.unit);
+    await this.writeReg(3, f.sr(bank));
+    await this.writeReg(6, f.errors);
+    await this.writeReg(13, buffer + BUFFER_SIZE + 0x400);
+    await this.writeReg(15, f.ram);
     await this.writeReg(16, 0x01000000);                        // xPSR: Thumb
     await this.write32(DHCSR, DBGKEY | C_MASKINTS | C_DEBUGEN); // run until BKPT
     await this.waitHalted(`programming ${hex(addr)}`, 5000);
     const left = await this.readReg(2);
-    const sr = await this.read32(SR);
-    if (left || (sr & SR_ERRORS)) throw new StLinkError(`programming stopped at ${hex(addr + (data.length / 4 - left) * 4)} (FLASH_SR ${hex(sr)})`);
+    const sr = await this.read32(f.sr(bank));
+    if (left || (sr & f.errors)) throw new StLinkError(`programming stopped at ${hex(addr + (data.length / f.unit - left) * f.unit)} (FLASH_SR ${hex(sr)})`);
   }
 
   async flash(image, { base = 0x08000000, onProgress = () => {}, verify = true, start = true } = {}) {
     if (!this.sectors) throw new StLinkError('connect() first');
-    if (!image.length || base + image.length > 0x08000000 + this.flashSize) {
-      throw new StLinkError(`image of ${image.length} bytes does not fit in ${this.flashSize / 1024} KB flash`);
-    }
-    const padded = new Uint8Array((image.length + 3) & ~3).fill(0xff);
+    const f = this.family;
+    const padded = new Uint8Array(Math.ceil(image.length / f.unit) * f.unit).fill(0xff);
     padded.set(image);
     const end = base + padded.length;
     const sectors = this.sectors.filter((s) => s.start < end && s.start + s.size > base);
+    const covered = sectors.every((s, i) => i === 0 || sectors[i - 1].start + sectors[i - 1].size === s.start);
+    if (!image.length || !sectors.length || sectors[0].start > base || !covered ||
+        sectors[sectors.length - 1].start + sectors[sectors.length - 1].size < end) {
+      throw new StLinkError(`image of ${image.length} bytes does not fit in ${this.flashSize / 1024} KB flash`);
+    }
+    const banks = [...new Set(sectors.map((s) => s.bank))];
 
     await this.resetHalt();
-    await this.writeMem(LOADER_ADDR, F4_LOADER);
-    await this.unlock();
-    await this.write32(SR, SR_ERRORS | 1);                      // clear stale flags
+    await this.writeMem(f.ram, f.loader);
     try {
+      for (const bank of banks) {
+        await this.unlock(bank);
+        await this.write32(f.ccr(bank), f.errors | (f === H7 ? 1 << 16 : 1));   // clear stale flags and EOP
+      }
       this.log(`erasing ${sectors.length} sector${sectors.length === 1 ? '' : 's'} (${sectors.reduce((a, s) => a + s.size, 0) / 1024} KB)`);
       for (let i = 0; i < sectors.length; i++) {
         onProgress('erase', i, sectors.length);
         await this.eraseSector(sectors[i]);
       }
       onProgress('erase', sectors.length, sectors.length);
-      await this.write32(CR, CR_PG | CR_PSIZE32);
+      for (const bank of banks) await this.write32(f.cr(bank), f.program(this.psize));
+      // Chunks never straddle a bank: banks start on 1 MB boundaries.
       for (let off = 0; off < padded.length; off += BUFFER_SIZE) {
-        await this.program(base + off, padded.subarray(off, off + BUFFER_SIZE));
+        const addr = base + off;
+        await this.program(sectors.find((s) => s.start <= addr && addr < s.start + s.size).bank, addr, padded.subarray(off, off + BUFFER_SIZE));
         onProgress('write', Math.min(off + BUFFER_SIZE, padded.length), padded.length);
       }
     } finally {
-      await this.write32(CR, CR_LOCK).catch(() => {});
+      for (const bank of banks) await this.write32(f.cr(bank), f.lock).catch(() => {});
     }
 
     if (verify) {

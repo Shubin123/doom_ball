@@ -83,10 +83,13 @@ or Edge.
 - **Memory budget**: the emulator runs DOOM with its heap split into the
   same banks, at the same sizes, as the H743 firmware link. On the Blue Pill
   budget it fails the same way the real chip would.
-- **Flashing**: the Nucleo's on-board ST-Link, or the chips' ROM bootloaders.
+- **Flashing**: an ST-Link (on-board on a Nucleo, or a standalone STLINK-V3
+  on the SWD pins), or the chips' ROM bootloaders.
   - Instant flash, over WebUSB to the ST-Link (`ide/flash/stlink.js`): SWD
-    halt, STM32F4 sector erase, programming by a 32-byte routine run from SRAM,
-    read-back verify and reset. Nucleo-F401RE, and other STM32F4 boards.
+    halt, sector erase, programming by a small routine run from SRAM,
+    read-back verify and reset. STM32F4 (Nucleo-F401RE, F411, F4xx) and
+    STM32H743/753 (both 1 MB flash banks, 256-bit flash words, loader in
+    AXI SRAM).
   - UART bootloader, [AN3155](https://www.st.com/resource/en/application_note/an3155-usart-protocol-used-in-the-stm32-bootloader-stmicroelectronics.pdf),
     over Web Serial: both chips.
   - USB DFU (DfuSe) over WebUSB: STM32H743 only (the F103 ROM has no USB
@@ -172,19 +175,25 @@ a USB serial port. LD2 is on PA5, the blue B1 button on PC13. The clock is
 
 ## Flashing
 
-### Instant flash (Nucleo-F401RE, the default)
+### Instant flash (Nucleo-F401RE and STM32H743, the default)
 
-Select the **Nucleo-F401RE** target and press **Flash**. The first time, the
-browser asks you to choose "STM32 STLink"; after that it remembers the
+Select the **Nucleo-F401RE** or **STM32H743** target and press **Flash**. On
+the H743, wire an ST-Link (e.g. STLINK-V3MINIE) to SWDIO, SWCLK, NRST, GND
+and VDD. The first time, the browser asks you to choose the ST-Link ("STM32
+STLink" or "STLINK-V3"); after that it remembers the
 probe, and every flash is one click with no dialog. The IDE halts the core
 over SWD, erases only the sectors the image needs, programs, verifies,
 resets into the new firmware and connects the serial console. It needs no
-BOOT0 jumper and no buttons, and takes under a second for Blinky.
+BOOT0 jumper and no buttons, and takes about a second for Blinky (DOOM on
+the H743: about 10 s).
 Firmware that sleeps or reuses the SWD pins is reached by holding NRST low
 while attaching.
 
-If the page has been allowed to use an ST-Link before, the IDE selects the
-Nucleo target when it opens. Close other ST-Link tools (STM32CubeProgrammer,
+If the page has been allowed to use a Nucleo's ST-Link/V2-1 before, the IDE
+selects the Nucleo target when it opens (a standalone STLINK-V3 can be wired
+to any board, so it selects nothing). Flashing a board other than the
+selected target is refused before anything is erased, naming the target that
+matches. Close other ST-Link tools (STM32CubeProgrammer,
 st-flash/st-util, OpenOCD) first, since only one program can use the probe
 at a time. The **▾** next to Flash still offers the ROM-bootloader methods.
 
@@ -208,11 +217,26 @@ tests/run_all.sh
 - **Firmware builds** for every target/project combination. `bluepill/doom`
   must fail with flash and RAM overflow.
 - **Flashing protocols** (`node --test tests/`): AN3155 and DfuSe program the
-  built images into simulated STM32 ROM bootloaders, and instant flash
-  programs a simulated ST-Link/V2-1 + STM32F401RE (`tests/sim_stlink.mjs`:
-  USB commands, SWD, the F4 flash controller and the SRAM loader). Flash
-  contents are compared byte for byte. With Chrome installed, the IDE test
-  also presses Flash in the real page against that simulator.
+  built images into simulated STM32 ROM bootloaders
+  (`tests/sim_bootloaders.mjs`), and instant flash programs a simulated
+  ST-Link/V2-1 + STM32F401RE and STLINK-V3 + STM32H743
+  (`tests/sim_stlink.mjs`: USB commands, SWD, the F4 and H7 flash
+  controllers and the SRAM loaders). Flash contents are compared byte for
+  byte.
+- **Flashing end to end** (`tests/e2e_flash.test.mjs`, needs Chrome): the
+  IDE in headless Chrome with fake WebUSB / Web Serial
+  (`tests/browser_fakes.mjs`) in front of those simulators. It presses Flash
+  and the ▾ dialog the way a user does and covers instant flash on both
+  boards, the first-use device picker and cancelling it, a busy or unplugged
+  probe, the wrong board, verify errors, double clicks, browsers without
+  WebUSB, USB DFU, the UART bootloader, a user-picked `.bin`, and the serial
+  console that connects after flashing. `FORGE_TEST_WASM_BUILD=1` adds
+  build-in-the-browser-then-flash.
+- **Flashing real hardware** (`tests/hw_flash.test.mjs`, opt in with
+  `FORGE_HW=1` after `npm i --no-save usb`): identifies the board over SWD,
+  flashes Blinky with `stlink.js` from Node, then presses Flash in the real
+  IDE page with its WebUSB bridged to the probe (DOOM and Blinky on an H743).
+  Every image is read back, and the LED pin is watched toggling.
 - **DOOM wasm, headless** (`tests/sim_headless.mjs`): demo playback with
   zone integrity checks, including the exact H743 bank layout.
 - **H743 firmware emulator** (`tests/emu/h743_emu.py`): runs the real

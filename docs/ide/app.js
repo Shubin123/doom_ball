@@ -8,7 +8,8 @@ import { DoomSim, doomKey, loadScript, fromBase64 } from './doom-sim.js';
 
 const $ = (id) => document.getElementById(id);
 const TARGETS = {
-  h743: { name: 'STM32H743IITx', flash: 2048 * 1024, ram: 1024 * 1024, dfu: true },
+  // STM32H743: instant flash through an ST-Link on SWD, or the ROM bootloader.
+  h743: { name: 'STM32H743IITx', flash: 2048 * 1024, ram: 1024 * 1024, dfu: true, stlink: [0x450] },
   bluepill: { name: 'STM32F103C8T6 Blue Pill', flash: 64 * 1024, ram: 20 * 1024, dfu: false },
   // Nucleo-F401RE: flashed through its on-board ST-Link (instant flash, the default).
   f401: { name: 'STM32F401RE Nucleo-F401RE', flash: 512 * 1024, ram: 96 * 1024, dfu: false, stlink: [0x433, 0x423] },
@@ -931,8 +932,11 @@ async function openFlashDialog() {
   $('fd-image').textContent = $('project').value === 'doom'
     ? `${kb(img.bytes.length)} from ${img.from} · Note: DOOM1.WAD (~4.2 MB) is stored separately on a FAT32 microSD card.`
     : `${kb(img.bytes.length)} from ${img.from}`;
-  $('m-dfu').classList.toggle('disabled', !t.dfu);
-  $('m-stlink').classList.toggle('disabled', !t.stlink);
+  // Disable the radios too: the greyed-out labels are still reachable by keyboard.
+  for (const [id, ok] of [['m-dfu', t.dfu], ['m-stlink', !!t.stlink]]) {
+    $(id).classList.toggle('disabled', !ok);
+    $(id).querySelector('input').disabled = !ok;
+  }
   $(t.stlink ? 'm-stlink' : 'm-uart').querySelector('input').checked = true;
   const support = [];
   if (!('serial' in navigator)) support.push('Web Serial is not available in this browser');
@@ -969,7 +973,8 @@ $('custom-firmware').addEventListener('change', () => {
   if (file) $('fd-image').textContent = `${kb(file.size)} from rebuilt image ${file.name}`;
 });
 
-// Instant flash: one click on a Nucleo. The ST-Link halts the core over SWD,
+// Instant flash: one click on a Nucleo, or on any board with an ST-Link on
+// its SWD pins. The ST-Link halts the core over SWD,
 // so there is no BOOT0 jumper or reset button, and the serial console (the
 // probe's second USB function) keeps running or is connected afterwards.
 async function instantFlash(image = null, from = '') {
@@ -992,7 +997,7 @@ async function instantFlash(image = null, from = '') {
     // Ask for the probe first, while the click still counts as a user gesture.
     let dev = (await navigator.usb.getDevices()).find(isStLink);
     if (!dev) {
-      line('flash', 'Select "STM32 STLink" once; the browser remembers it and later flashes need no dialog.', 'dim');
+      line('flash', 'Select the ST-Link ("STM32 STLink" or "STLINK-V3") once; the browser remembers it and later flashes need no dialog.', 'dim');
       dev = await navigator.usb.requestDevice({ filters: STLINK_FILTERS });
     }
     if (!image) {
@@ -1004,7 +1009,9 @@ async function instantFlash(image = null, from = '') {
     st = new StLink(dev, (s) => line('flash', s, 'dim'));
     const info = await st.connect();
     if (!t.stlink.includes(info.chipId)) {
-      throw new Error(`this board is an ${info.chip}, not the ${t.name}; select the matching target`);
+      const match = Object.values(TARGETS).find((other) => other.stlink?.includes(info.chipId));
+      throw new Error(`this board is an ${info.chip}, not the ${t.name}; ` +
+        (match ? `select the ${match.name} target` : 'no target here matches it'));
     }
     await st.flash(image, { onProgress: progress });
     ok = true;
@@ -1012,7 +1019,7 @@ async function instantFlash(image = null, from = '') {
   } catch (e) {
     line('flash', `Flash failed: ${e.message}`, 'err');
     if (e.name === 'NotFoundError') {
-      line('flash', 'No ST-Link was chosen. Plug the Nucleo in with a data USB cable (CN1) and press Flash again.', 'dim');
+      line('flash', 'No ST-Link was chosen. Plug the ST-Link in with a data USB cable (CN1 on a Nucleo) and press Flash again.', 'dim');
     } else if (e.name === 'SecurityError' || /access denied|claim|unable to open|busy/i.test(e.message)) {
       line('flash', 'Another program is using the ST-Link: STM32CubeProgrammer/CubeIDE, st-flash/st-util, OpenOCD or this IDE in another tab. Close it and press Flash again.', 'dim');
     }
@@ -1029,7 +1036,7 @@ async function instantFlash(image = null, from = '') {
   }
   const port = await stlinkSerialPort();
   if (port && await openConsole(port, { quiet: true })) {
-    line('flash', 'Serial console connected to the ST-Link USB serial port (USART2).', 'ok');
+    line('flash', 'Serial console connected to the ST-Link USB serial port.', 'ok');
     showTerm('serial');
   } else if (!port) {
     line('flash', 'Press Connect serial and choose the STLink port once to see the board output (115200 8N1).', 'dim');
@@ -1126,14 +1133,16 @@ window.addEventListener('pagehide', () => {
   catch { /* Keep the already autosaved draft if a final pagehide write exceeds quota. */ }
 });
 
-// Board choice: the last one used here, else the Nucleo when its ST-Link was
-// allowed before. Plugging a known ST-Link in announces instant flash.
+// Board choice: the last one used here, else the Nucleo-F401RE when its
+// on-board ST-Link/V2-1 was allowed before (a standalone STLINK-V3 can be
+// wired to any board, so it selects nothing). Plugging a known ST-Link in
+// announces instant flash.
 async function restoreTarget() {
   let saved = null;
   try { saved = localStorage.getItem(TARGET_KEY); } catch { /* storage blocked */ }
   if (saved && TARGETS[saved]) {
     $('target').value = saved;
-  } else if ('usb' in navigator && (await navigator.usb.getDevices().catch(() => [])).some(isStLink)) {
+  } else if ('usb' in navigator && (await navigator.usb.getDevices().catch(() => [])).some((d) => isStLink(d) && d.productId === 0x374b)) {
     $('target').value = 'f401';
     line('flash', 'ST-Link found: selected the Nucleo-F401RE. Flash programs it over USB in one click.', 'ok');
   }
