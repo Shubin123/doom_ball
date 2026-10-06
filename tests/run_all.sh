@@ -49,7 +49,14 @@ cp ide/forge.js /tmp/forge_bundle_before.js
 node tools/bundle_ide.mjs >/dev/null
 cmp -s ide/forge.js /tmp/forge_bundle_before.js
 check $? "ide/forge.js is up to date with the ide/ modules"
-CHROME=${CHROME:-$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || true)}
+# First browser that actually starts (a stale wrapper can outlive its app).
+if [ -z "${CHROME:-}" ]; then
+  for c in google-chrome-stable google-chrome chromium "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+    c=$(command -v "$c" || true)
+    if [ -n "$c" ] && "$c" --version >/dev/null 2>&1; then CHROME=$c; break; fi
+  done
+fi
+CHROME=${CHROME:-}
 if [ -n "$CHROME" ]; then
   node tests/file_url.mjs "$CHROME"
   check $? "index.html from file:// runs DOOM in headless Chrome"

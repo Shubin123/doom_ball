@@ -19,11 +19,14 @@ import { StLink, isStLink } from '../ide/flash/stlink.js';
 import { chrome, withStaticIde } from './chrome_ide.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// hz: the core clock Blinky configures (H743 400 MHz, F401 84 MHz); f4: the
+// STM32F4 RCC / flash / USART2 registers are decoded as well.
 const BOARDS = {
-  0x450: { target: 'h743', images: ['doom', 'blinky'], led: { odr: 0x58020814, bit: 13, name: 'PC13' } },
-  0x433: { target: 'f401', images: ['blinky'], led: { odr: 0x40020014, bit: 5, name: 'PA5 (LD2)' } },
-  0x423: { target: 'f401', images: ['blinky'], led: { odr: 0x40020014, bit: 5, name: 'PA5 (LD2)' } },
+  0x450: { target: 'h743', images: ['doom', 'blinky'], hz: 400e6, led: { odr: 0x58020814, bit: 13, name: 'PC13' } },
+  0x433: { target: 'f401', images: ['blinky'], hz: 84e6, f4: true, led: { odr: 0x40020014, bit: 5, name: 'PA5 (LD2)' } },
+  0x423: { target: 'f401', images: ['blinky'], hz: 84e6, f4: true, led: { odr: 0x40020014, bit: 5, name: 'PA5 (LD2)' } },
 };
+const BLINK_MS = 3000;   // Blinky toggles the LED every 3 s
 const prebuilt = (target, project) => new Uint8Array(readFileSync(path.join(root, `firmware/prebuilt/${target}-${project}.bin`)));
 
 let probe = null, why = 'set FORGE_HW=1 to run against a connected ST-Link';
@@ -60,6 +63,83 @@ async function ledToggles(led, ms = 7000) {
   });
 }
 
+// Checks the running Blinky over SWD without halting it: no fault, the clock
+// tree Blinky asks for (and on the F4 the flash wait states, voltage scale,
+// SysTick and UART divider that go with it), the core clock measured against
+// this computer's clock with the cycle counter, the LED period, and that the
+// rest of the first flash sector is erased.
+async function boardHealth(board, image) {
+  const report = [];
+  const near = (got, want, tolerance, what) => {
+    const error = Math.abs(got - want) / want;
+    report.push(`${what} ${got.toPrecision(6)} (want ${want.toPrecision(6)}, ${(error * 100).toFixed(3)}% off)`);
+    assert.ok(error <= tolerance, `${what}: ${got} vs ${want} is ${(error * 100).toFixed(2)}% off (allowed ${(tolerance * 100).toFixed(1)}%)`);
+  };
+  await withProbe(async (st, info) => {
+    const dhcsr = await st.read32(0xe000edf0);
+    assert.equal(dhcsr & (1 << 19), 0, 'core is not locked up');
+    assert.equal(dhcsr & (1 << 17), 0, 'core is running, not halted');
+    assert.equal(await st.read32(0xe000ed2c), 0, 'HFSR: no HardFault');
+    assert.equal(await st.read32(0xe000ed28), 0, 'CFSR: no MemManage, BusFault or UsageFault');
+
+    // image: the bytes flashed, or null for a browser build the IDE verified itself.
+    const sector0 = await st.readMem(0x08000000, 16 * 1024);
+    if (image) assert.deepEqual(sector0.subarray(0, image.length), image, 'the image reads back byte for byte');
+    const used = image ? image.length : sector0.findLastIndex((b) => b !== 0xff) + 1;
+    assert.ok(used > 0 && sector0.subarray((used + 31) & ~31).every((b) => b === 0xff), 'the rest of the first sector is erased');
+
+    let hseHz = 0, sysHz = board.hz;
+    if (board.f4) {
+      const [cr, pllcfgr, cfgr, acr, pwr] = await Promise.all([0x40023800, 0x40023804, 0x40023808, 0x40023c00, 0x40007000].map((a) => st.read32(a)));
+      assert.equal((cfgr >> 2) & 3, 2, 'SYSCLK runs from the PLL');
+      const hse = (pllcfgr >> 22) & 1;
+      hseHz = hse ? 8e6 : 0;
+      const fin = hse ? 8e6 : 16e6, m = pllcfgr & 0x3f, n = (pllcfgr >> 6) & 0x1ff, p = 2 * (((pllcfgr >> 16) & 3) + 1);
+      sysHz = fin / m * n / p;
+      report.push(`PLL from ${hse ? 'HSE 8 MHz (ST-Link MCO)' : 'HSI 16 MHz'}: /${m} x${n} /${p}`);
+      if (hse) assert.ok(cr & (1 << 17), 'HSE ready');
+      near(sysHz, board.hz, 0, 'SYSCLK from RCC, Hz');
+      const vco = fin / m * n;
+      assert.ok(fin / m >= 1e6 && fin / m <= 2e6 && vco >= 192e6 && vco <= 432e6, `PLL input ${fin / m} Hz and VCO ${vco} Hz within the datasheet`);
+      const vos = (pwr >> 14) & 3;
+      assert.ok(vos >= 2, `voltage scale ${vos} allows ${sysHz / 1e6} MHz (scale 2 or higher up to 84 MHz)`);
+      const latency = acr & 0xf;
+      const needed = Math.ceil(sysHz / (info.volts !== null && info.volts < 2.7 ? 24e6 : 30e6)) - 1;
+      report.push(`flash latency ${latency} WS (needs ${needed} at ${info.volts?.toFixed(2)} V), ART ${acr & (1 << 9) ? 'I+' : ''}${acr & (1 << 10) ? 'D+' : ''}${acr & (1 << 8) ? 'prefetch' : ''}`);
+      assert.ok(latency >= needed, `flash latency ${latency} WS is enough for ${sysHz / 1e6} MHz`);
+      const ppre1 = (cfgr >> 10) & 7, pclk1 = sysHz / (ppre1 < 4 ? 1 : 2 ** (ppre1 - 3));
+      assert.ok(pclk1 <= 42e6, `APB1 ${pclk1 / 1e6} MHz is at most 42 MHz`);
+      const [brr, ucr1] = [await st.read32(0x40004408), await st.read32(0x4000440c)];
+      assert.ok((ucr1 & 0x200c) === 0x200c, 'USART2 enabled with TX and RX');
+      const baud = pclk1 / ((ucr1 & (1 << 15)) ? ((brr & ~0xf) | ((brr & 7) << 1)) / 2 : brr) ;
+      near(baud, 115200, 0.015, 'USART2 baud');
+    }
+    const [load, ctrl] = [await st.read32(0xe000e014), await st.read32(0xe000e010)];
+    assert.equal(ctrl & 7, 7, 'SysTick runs from the core clock with its interrupt on');
+    near(load + 1, sysHz / 1000, 0, 'SysTick reload, cycles per ms');
+
+    // Cycle counter against this computer's clock, both sampled mid-transfer.
+    await st.write32(0xe000edfc, (await st.read32(0xe000edfc)) | (1 << 24));   // DEMCR.TRCENA
+    await st.write32(0xe0001000, (await st.read32(0xe0001000)) | 1);           // DWT_CTRL.CYCCNTENA
+    const sample = async () => { const a = performance.now(); const c = await st.read32(0xe0001004); return [c, (a + performance.now()) / 2]; };
+    const [c0, t0] = await sample();
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const [c1, t1] = await sample();
+    near(((c1 - c0) >>> 0) / ((t1 - t0) / 1000), sysHz, hseHz ? 0.003 : 0.02, 'core clock measured, Hz');
+
+    // LED period: time two toggles of the output bit.
+    const edges = [];
+    let last = ((await st.read32(board.led.odr)) >>> board.led.bit) & 1;
+    for (const end = performance.now() + 3 * BLINK_MS; performance.now() < end && edges.length < 2;) {
+      const now = performance.now(), bit = ((await st.read32(board.led.odr)) >>> board.led.bit) & 1;
+      if (bit !== last) { edges.push(now); last = bit; }
+    }
+    assert.equal(edges.length, 2, `${board.led.name} toggled twice`);
+    near(edges[1] - edges[0], BLINK_MS, 0.02, `${board.led.name} period, ms`);
+  });
+  for (const r of report) console.log(`# ${r}`);
+}
+
 test('real ST-Link: stlink.js flashes Blinky, reads it back, the LED blinks', { skip: probe ? false : why, timeout: 120000 }, async () => {
   const info = await withProbe(async (st, i) => i);
   const board = BOARDS[info.chipId];
@@ -70,6 +150,7 @@ test('real ST-Link: stlink.js flashes Blinky, reads it back, the LED blinks', { 
   assert.deepEqual(phases, ['erase', 'write', 'verify']);
   assert.deepEqual((await readBack(image.length)).subarray(0, image.length), image);
   assert.ok(await ledToggles(board.led), `${board.led.name} toggles`);
+  await boardHealth(board, image);
 });
 
 // navigator.usb in the page, backed by the real device in this process.
@@ -204,4 +285,38 @@ test('real ST-Link: an edit in the IDE is built and is what lands on the board, 
     assert.deepEqual(errors, []);
   }, { site: 'docs', before: bridgeScript(dev, board.target), bindings: { usbCall: usbHandler(dev) } });
   assert.ok(await ledToggles(board.led), `${board.led.name} toggles running the edited Blinky`);
+  await boardHealth(board, null);   // the browser-built (Clang) firmware
+});
+
+// Repeated flashing with random images of random sizes: across the 16, 64 and
+// 128 KB sector boundaries, odd lengths that need padding, every one read back
+// in full along with the bytes just past it. FORGE_HW_REPEAT sets the count.
+test('real ST-Link: repeated flashes of random images all read back exactly', { skip: probe ? false : why, timeout: 900000 }, async () => {
+  const info = await withProbe(async (st, i) => i);
+  const board = BOARDS[info.chipId];
+  assert.ok(board, `no target for chip 0x${info.chipId.toString(16)} (${info.chip})`);
+  const rounds = Number(process.env.FORGE_HW_REPEAT || 12);
+  let seed = 0x2545f491;
+  const random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return seed >>> 0; };
+  const sizes = [1, 31, 16 * 1024, 16 * 1024 + 1, 64 * 1024 - 3, 64 * 1024 + 5, 192 * 1024 + 7];
+  let bytes = 0;
+  const t0 = Date.now();
+  for (let round = 0; round < rounds; round++) {
+    const size = round < sizes.length ? sizes[round] : 1 + random() % (200 * 1024);
+    const image = new Uint8Array(size).map(() => random() & 0xff);
+    // The flasher erases only the sectors the image covers; check up to the end of the last one.
+    const sectorEnd = await withProbe(async (st) => {
+      await st.flash(image, { start: false });
+      const last = st.sectors.find((x) => x.start <= 0x08000000 + size - 1 && 0x08000000 + size - 1 < x.start + x.size);
+      return last.start + last.size - 0x08000000;
+    });
+    const back = await readBack(Math.min(sectorEnd, size + 4096));
+    assert.deepEqual(back.subarray(0, size), image, `round ${round}: ${size} bytes read back`);
+    assert.ok(back.subarray(size).every((b) => b === 0xff), `round ${round}: the rest of its last sector is erased`);
+    bytes += size;
+  }
+  console.log(`# ${rounds} flashes, ${(bytes / 1024).toFixed(0)} KB, all exact, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  const blinky = prebuilt(board.target, 'blinky');
+  await withProbe((st) => st.flash(blinky));
+  assert.ok(await ledToggles(board.led), `${board.led.name} toggles: Blinky is back`);
 });

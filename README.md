@@ -245,7 +245,12 @@ tests/run_all.sh
   with `stlink.js` from Node, then presses Flash in the real IDE page with its
   WebUSB bridged to the probe (DOOM and Blinky on an H743), and finally edits
   Blinky twice in the IDE and flashes each edit. Every image is read back, and
-  the LED pin is watched toggling.
+  the LED pin is watched toggling. On the running Blinky (prebuilt and
+  browser-built) it checks over SWD for faults, decodes the F4 clock tree,
+  flash wait states, voltage scale, SysTick and UART divider, measures the
+  core clock with the cycle counter against the host clock, and times the LED
+  period. A stress test flashes random images of random sizes across sector
+  boundaries (`FORGE_HW_REPEAT`, default 12) and reads each back.
 - **DOOM wasm, headless** (`tests/sim_headless.mjs`): demo playback with
   zone integrity checks, including the exact H743 bank layout.
 - **H743 firmware emulator** (`tests/emu/h743_emu.py`): runs the real
