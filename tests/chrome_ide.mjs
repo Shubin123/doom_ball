@@ -16,14 +16,18 @@ export const chrome = process.env.CHROME || ['/usr/bin/google-chrome-stable','/u
 // URL the page requested. `before` is page script that runs ahead of the
 // IDE's own (fake Web Serial / WebUSB devices the IDE finds when it starts).
 // `bindings` maps window function names to Node handlers: the page calls
-// name(string) and handler(string, evaluate) runs here.
-export async function withStaticIde(run, { before = null, bindings = {} } = {}) {
+// name(string) and handler(string, evaluate) runs here. `site: 'docs'` serves
+// the published GitHub Pages tree, which also carries the browser compiler.
+export async function withStaticIde(run, { before = null, bindings = {}, site = null } = {}) {
+  const served = site ? path.join(root, site) : root;
   const profile = mkdtempSync(path.join(tmpdir(), 'forge-static-chrome-'));
   const server = createServer((req, res) => {
     let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     if (pathname === '/') pathname = '/index.html';
-    const filename = path.resolve(root, `.${pathname}`);
-    if (!filename.startsWith(root + path.sep) && filename !== path.join(root, 'index.html')) { res.writeHead(403).end(); return; }
+    // The fake-device simulators live in tests/, outside the published tree.
+    const base = pathname.startsWith('/tests/') ? root : served;
+    const filename = path.resolve(base, `.${pathname}`);
+    if (!filename.startsWith(base + path.sep)) { res.writeHead(403).end(); return; }
     const types = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.wad':'application/octet-stream' };
     res.setHeader('Content-Type', types[path.extname(filename)] || 'application/octet-stream');
     const stream = createReadStream(filename);

@@ -46,11 +46,16 @@ The **Clock diagram** button opens a movable clock-tree pane calculated from
 the selected board's `board.c`; all IDE panes can be floated, moved, resized,
 and docked back into the workspace.
 
-**Rebuild and flash H743 changes**: edit firmware or engine sources in the IDE,
-press **Build**, then select the resulting image in **Flash…**. The build uses
-the current editor buffers, reports compiler/linker memory usage, and creates
-the `.bin` in the browser. The image can be flashed directly over UART or USB
-DFU without downloading an artifact or sending code to a server.
+**Rebuild and flash changes**: edit firmware or engine sources in the IDE and
+press **Flash**. Flash always uploads firmware built from the sources as they
+are now: when files that go into the selected board and example changed since
+the last build, it builds them first (H743 and Nucleo-F401RE, in the browser);
+unchanged sources use this session's build or the prebuilt image. A failed
+build stops the flash instead of falling back to an older image. **Build**
+alone still compiles and reports compiler/linker memory usage. Nothing is
+downloaded or sent to a server; the image goes over the ST-Link, UART or USB
+DFU. With the build server, Flash always runs `make` first, since files can
+also change outside the IDE.
 
 ```sh
 node server/forge_server.mjs            # then open http://localhost:8732/
@@ -230,13 +235,17 @@ tests/run_all.sh
   boards, the first-use device picker and cancelling it, a busy or unplugged
   probe, the wrong board, verify errors, double clicks, browsers without
   WebUSB, USB DFU, the UART bootloader, a user-picked `.bin`, and the serial
-  console that connects after flashing. `FORGE_TEST_WASM_BUILD=1` adds
-  build-in-the-browser-then-flash.
+  console that connects after flashing. Edited sources are built in the
+  browser before flashing, a second edit replaces the first on the chip,
+  reverting returns to the prebuilt image, and a failed build leaves the
+  board untouched. `FORGE_TEST_WASM_BUILD=1` adds an H743 build-then-flash.
 - **Flashing real hardware** (`tests/hw_flash.test.mjs`, opt in with
-  `FORGE_HW=1` after `npm i --no-save usb`): identifies the board over SWD,
-  flashes Blinky with `stlink.js` from Node, then presses Flash in the real
-  IDE page with its WebUSB bridged to the probe (DOOM and Blinky on an H743).
-  Every image is read back, and the LED pin is watched toggling.
+  `FORGE_HW=1` after `npm i --no-save usb@2`, or point `FORGE_USB_MODULE` at
+  an installed `usb` package): identifies the board over SWD, flashes Blinky
+  with `stlink.js` from Node, then presses Flash in the real IDE page with its
+  WebUSB bridged to the probe (DOOM and Blinky on an H743), and finally edits
+  Blinky twice in the IDE and flashes each edit. Every image is read back, and
+  the LED pin is watched toggling.
 - **DOOM wasm, headless** (`tests/sim_headless.mjs`): demo playback with
   zone integrity checks, including the exact H743 bank layout.
 - **H743 firmware emulator** (`tests/emu/h743_emu.py`): runs the real

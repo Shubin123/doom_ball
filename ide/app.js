@@ -21,6 +21,9 @@ const state = {
   server: false,
   manifest: null,
   builds: {},          // "target-project" -> build result (from server or manifest)
+  rev: 0,              // bumped by every source edit; a build records the one it compiled
+  building: null,      // promise of the running build
+  toolchain: false,    // the build server has arm-none-eabi-gcc
   files: [],
   projects: [],
   projectGroups: [],
@@ -121,6 +124,7 @@ async function detectServer() {
     if (!r.ok) throw new Error();
     const st = await r.json();
     state.server = true;
+    state.toolchain = !!st.toolchain;
     s.innerHTML = st.toolchain
       ? `<span class="dot ok"></span><span>build server · ${st.toolchain.replace(/^arm-none-eabi-gcc /, 'gcc ')}</span>`
       : '<span class="dot warn"></span><span>build server · toolchain not found (set ARM_GCC_PATH)</span>';
@@ -334,6 +338,7 @@ function editor() {
     cm.on('change', () => {
       const f = state.open.get(state.active);
       if (f) {
+        state.rev++;
         renderTabs();
         syncModifiedFile(state.active, f.doc.getValue());
         scheduleAutosave(state.active, f);
@@ -494,6 +499,7 @@ async function resetModifiedSamples() {
     }
     if (!state.server) saveStoredObject(DRAFT_KEY, changes);
     saveStoredObject(MODIFIED_KEY, {});
+    state.rev++;
     renderTabs(); renderModifiedFiles();
     autosaveStatus('Samples restored to defaults');
   } catch (error) {
@@ -514,22 +520,29 @@ $('confirm-reset-samples').addEventListener('click', (event) => {
 });
 
 // ------------------------------------------------------------ build --
-async function build() {
+// Builds the current selection and returns the result (null when nothing was
+// built). A result records the source revision it compiled, so Flash knows
+// whether it still matches the editor; a failed build replaces older images.
+function build() {
+  state.building ||= buildOnce().finally(() => { state.building = null; });
+  return state.building;
+}
+
+async function buildOnce() {
   if (!await saveAll()) {
     showTerm('build');
     line('build', 'Build stopped because one or more edited files could not be autosaved.', 'err');
-    return;
+    return null;
   }
-  if (!state.server) {
+  if (!state.server || !state.toolchain) {
     showTerm('build');
     if (!BROWSER_TARGETS[$('target').value]) {
       line('build', 'Browser firmware builds support the STM32H743 and the Nucleo-F401RE. Select one of those boards to build here.', 'warn');
-      return;
+      return null;
     }
-    await buildInBrowser();
-    return;
+    return buildInBrowser();
   }
-  const [target, project] = [$('target').value, $('project').value];
+  const [target, project, rev] = [$('target').value, $('project').value, state.rev];
   showTerm('build');
   $('term-build').textContent = '';
   line('build', `$ make TARGET=${target} PROJECT=${project}`, 'dim');
@@ -554,11 +567,14 @@ async function build() {
       line('build', `Build FAILED in ${secs}s`, 'err');
     }
     r.source = 'this build';
+    r.rev = rev;
     state.builds[`${target}-${project}`] = r;
     renderMemory();
     updateEmulator();
+    return r;
   } catch (e) {
     line('build', `build request failed: ${e.message}`, 'err');
+    return null;
   } finally {
     $('btn-build').disabled = false;
     $('btn-build').textContent = 'Build';
@@ -566,13 +582,13 @@ async function build() {
 }
 
 async function buildInBrowser() {
-  const [target, project] = [$('target').value, $('project').value];
+  const [target, project, rev] = [$('target').value, $('project').value, state.rev];
   const selected = projectInfo();
   showTerm('build');
   $('term-build').textContent = '';
   if (!selected || !selected.targets.includes(target)) {
     line('build', 'Select an example supported by the current board.', 'warn');
-    return;
+    return null;
   }
   $('btn-build').disabled = true;
   $('btn-build').textContent = 'Loading compiler…';
@@ -597,14 +613,17 @@ async function buildInBrowser() {
       },
     });
     result.source = 'browser WebAssembly Clang build';
+    result.rev = rev;
     state.builds[`${target}-${project}`] = result;
     const secs = ((performance.now() - started) / 1000).toFixed(1);
     line('build', `Build succeeded in ${secs}s: firmware.bin ${kb(result.binarySize)}` +
       (project === 'doom' ? `, DOOM zone heap ${kb(result.zone)}` : ''), 'ok');
     renderMemory();
     updateEmulator();
+    return result;
   } catch (error) {
     line('build', `Build failed: ${error.message}`, 'err');
+    return (state.builds[`${target}-${project}`] = { ok: false, rev, memory: [], source: 'browser WebAssembly Clang build' });
   } finally {
     $('btn-build').disabled = false;
     $('btn-build').textContent = 'Build';
@@ -865,11 +884,17 @@ $('serial-form').addEventListener('submit', (e) => {
 });
 
 // ------------------------------------------------------------ flashing --
-async function firmwareImage() {
-  const b = state.builds[combo()];
-  if (b && b.ok && b.binary) {
-    return { bytes: fromBase64(b.binary), from: 'your latest build' };
-  }
+// Edited files that go into the selected board + example's firmware.
+function editedSources() {
+  const [target, project] = [$('target').value, $('project').value];
+  return modifiedPaths().filter((path) => {
+    const m = path.match(/^firmware\/(projects|targets)\/([^/]+)\//);
+    if (m) return m[2] === (m[1] === 'projects' ? project : target);
+    return path.startsWith('engine/') ? project === 'doom' : path.startsWith('firmware/');
+  });
+}
+
+async function prebuiltImage() {
   const from = `prebuilt firmware/prebuilt/${combo()}.bin`;
   try {
     const r = await fetch(`firmware/prebuilt/${combo()}.bin`, { cache: 'no-store' });
@@ -880,6 +905,44 @@ async function firmwareImage() {
     if (b64) return { bytes: fromBase64(b64), from };
   }
   return null;
+}
+
+// The firmware built from the sources as they are now: this session's build
+// when nothing was edited since it started, the prebuilt image when the
+// sources are the shipped ones, otherwise a fresh build. The build server
+// always rebuilds (make only recompiles what changed), since files can also
+// change outside the IDE. Returns { bytes, from } or { error }.
+async function firmwareImage() {
+  if (state.building) await state.building;
+  const key = combo();
+  let b = state.builds[key];
+  const current = b && b.rev === state.rev;
+  const remote = state.server && state.toolchain;
+  if (!current || remote) {
+    const edited = remote ? [] : editedSources();
+    if (!remote && !edited.length) {
+      const manifest = state.manifest && state.manifest.builds[key];
+      if (manifest && manifest.ok === false) return { error: `${key} does not fit on the ${TARGETS[$('target').value].name}; nothing to flash.` };
+      const img = await prebuiltImage();
+      if (img) return img;
+    }
+    if (!remote && !BROWSER_TARGETS[$('target').value]) {
+      return { error: edited.length
+        ? `${edited.join(', ')} changed, and the ${TARGETS[$('target').value].name} cannot be built in the browser. Build it with the build server, or choose a rebuilt .bin under ▾.`
+        : 'No firmware image: build first.' };
+    }
+    line('flash', edited.length ? `Building first: ${edited.join(', ')} changed since the last build.` : 'Building first: flashing uploads the firmware built from the current sources.', 'dim');
+    b = await build();
+    showTerm('flash');
+    if (!b) return { error: 'No firmware image: the build did not run (see Build).' };
+    if (b.rev !== state.rev) return { error: 'The sources changed while building; press Flash again to build and flash them.' };
+  }
+  if (!b.ok || !b.binary) {
+    const overflow = (b.memory || []).some((m) => m.overflow > 0);
+    return { error: overflow ? `${key} does not fit on the ${TARGETS[$('target').value].name}; nothing to flash.`
+      : 'The build failed, so there is nothing to flash. Fix the errors shown under Build.' };
+  }
+  return { bytes: fromBase64(b.binary), from: `your build of the current sources (${b.source})` };
 }
 
 function progress(phase, done, total) {
@@ -893,16 +956,11 @@ function progress(phase, done, total) {
 // logs why and returns null when there is nothing flashable.
 async function flashImage() {
   const t = TARGETS[$('target').value];
-  const b = currentBuild();
-  if (b && b.ok === false) {
-    showTerm('flash');
-    line('flash', `${combo()} does not fit on the ${t.name}; nothing to flash.`, 'err');
-    return null;
-  }
+  showTerm('flash');
   const img = await firmwareImage();
-  if (!img) {
+  if (img.error) {
     showTerm('flash');
-    line('flash', 'No firmware image: build first.', 'err');
+    line('flash', img.error, 'err');
     return null;
   }
   if (!img.bytes.length || img.bytes.length > t.flash) {

@@ -172,3 +172,36 @@ test('real ST-Link: the IDE Flash button programs the board through WebUSB', { s
   }, { before: bridgeScript(dev, board.target), bindings: { usbCall: usbHandler(dev) } });
   assert.ok(await ledToggles(board.led), `${board.led.name} toggles after the IDE flashed Blinky`);
 });
+
+test('real ST-Link: an edit in the IDE is built and is what lands on the board, edit after edit', { skip: !probe ? why : !chrome ? 'no Chrome' : false, timeout: 600000 }, async () => {
+  const info = await withProbe(async (st, i) => i);
+  const board = BOARDS[info.chipId];
+  assert.ok(board, `no target for chip 0x${info.chipId.toString(16)} (${info.chip})`);
+  const dev = await probe.find();
+  const onBoard = async (text) => Buffer.from(await readBack(64 * 1024)).includes(text, 0, 'latin1');
+  await withStaticIde(async ({ evaluate, waitFor, errors }) => {
+    await evaluate(`(() => { const p = document.querySelector('#project'); p.value = 'blinky'; p.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+    await waitFor(`document.querySelector('.editor-tab.active')?.title === 'firmware/projects/blinky/main.c'`);
+    let previous = 'blink %lu';
+    for (const marker of [`hw-edit-${Date.now() % 100000} %lu`, `hw-again-${Date.now() % 100000} %lu`]) {
+      await evaluate(`(() => { const cm = document.querySelector('.CodeMirror').CodeMirror;
+        cm.setValue(cm.getValue().replaceAll(${JSON.stringify(previous)}, ${JSON.stringify(marker)})); return true; })()`);
+      await waitFor(`!document.querySelector('#btn-flash').disabled`);
+      const start = (await evaluate(`document.querySelector('#term-flash').textContent`)).length;
+      await evaluate(`document.querySelector('#btn-flash').click()`);
+      await waitFor(`/Flashed, verified|Flash failed|nothing to flash|No firmware image/.test(document.querySelector('#term-flash').textContent.slice(${start}))`, 400000);
+      const log = (await evaluate(`document.querySelector('#term-flash').textContent`)).slice(start);
+      assert.match(log, /Building first: firmware\/projects\/blinky\/main\.c changed/, log);
+      assert.match(log, /from your build of the current sources/, log);
+      assert.match(log, /Flashed, verified and started/, log);
+      await waitFor(`!document.querySelector('#btn-flash').disabled`);
+      assert.equal(await evaluate(`realProbe.opened`), false, 'the IDE released the probe');
+      assert.ok(await onBoard(marker), `"${marker}" read back from the board`);
+      assert.ok(!await onBoard(previous), `"${previous}" is gone from the board`);
+      console.log(`# ${board.target}: "${marker}" built in the browser and flashed`);
+      previous = marker;
+    }
+    assert.deepEqual(errors, []);
+  }, { site: 'docs', before: bridgeScript(dev, board.target), bindings: { usbCall: usbHandler(dev) } });
+  assert.ok(await ledToggles(board.led), `${board.led.name} toggles running the edited Blinky`);
+});

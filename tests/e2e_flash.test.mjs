@@ -35,7 +35,7 @@ function page(setup = '', { sync = '', usb = true, serial = true } = {}) {
   })();`;
 }
 
-const DONE = String.raw`/Flashed|Flash failed|nothing to flash|No firmware image|Firmware image is|Instant flash (needs|uses)|Could not read/`;
+const DONE = String.raw`/Flashed|Flash failed|nothing to flash|No firmware image|sources changed while|cannot be built in the browser|Firmware image is|Instant flash (needs|uses)|Could not read/`;
 
 // Helpers bound to one page.
 function ui({ evaluate, waitFor }) {
@@ -248,13 +248,78 @@ test('browsers without WebUSB are told to use Chrome or Edge', { skip }, async (
   }, { before: page('', { usb: false }) });
 });
 
-test('a project with no prebuilt image asks for a build instead of flashing', { skip }, async () => {
+// ------------------------------------------- edited sources are rebuilt --
+const BUILD = 240000;   // the browser compiler loads ~98 MB the first time
+// Replaces text in the file open in the editor, as typing would.
+const edit = (from, to) => `(() => { const cm = document.querySelector('.CodeMirror').CodeMirror;
+  cm.setValue(cm.getValue().replaceAll(${JSON.stringify(from)}, ${JSON.stringify(to)})); return true; })()`;
+const holdsText = (text) => `new TextDecoder('latin1').decode(dev.flash).includes(${JSON.stringify(text)})`;
+
+test('edited sources: Flash builds them first and uploads that build, rebuilding only after further edits', { skip, timeout: 2 * BUILD }, async () => {
   await withStaticIde(async (page) => {
-    const { evaluate } = page, u = ui(page);
+    const { evaluate, waitFor, errors } = page, u = ui(page);
+    await waitFor(`document.querySelector('.editor-tab.active')?.title === 'firmware/projects/blinky/main.c'`);
+    await evaluate(edit('blink %lu', 'edit-one %lu'));
+    let log = await u.flash(BUILD);
+    assert.match(log, /Building first: firmware\/projects\/blinky\/main\.c changed since the last build\./, log);
+    assert.match(log, /from your build of the current sources \(browser WebAssembly Clang build\)/, log);
+    assert.match(log, /Flashed, verified and started/, log);
+    assert.match(await evaluate(`document.querySelector('#term-build').textContent`), /Build succeeded/);
+    assert.equal(await evaluate(holdsText('edit-one %lu')), true, 'the edited firmware is on the chip');
+    assert.equal(await u.holds('dev.flash', 'f401-blinky'), false, 'not the prebuilt image');
+    await u.idle();
+
+    log = await u.flash();   // nothing changed: the same build, no compile
+    assert.doesNotMatch(log, /Building first/);
+    assert.match(log, /Flashed, verified and started/, log);
+    assert.equal(await evaluate(holdsText('edit-one %lu')), true);
+    await u.idle();
+
+    await evaluate(edit('edit-one %lu', 'edit-two %lu'));
+    log = await u.flash(BUILD);
+    assert.match(log, /Building first/, log);
+    assert.equal(await evaluate(holdsText('edit-two %lu')), true, 'the second edit is on the chip');
+    assert.equal(await evaluate(holdsText('edit-one %lu')), false);
+    await u.idle();
+
+    await evaluate(edit('edit-two %lu', 'blink %lu'));   // back to the shipped source: the prebuilt image
+    log = await u.flash();
+    assert.doesNotMatch(log, /Building first/);
+    assert.match(log, /from prebuilt firmware\/prebuilt\/f401-blinky\.bin/, log);
+    assert.equal(await u.holds('dev.flash', 'f401-blinky'), true);
+    assert.deepEqual(errors, []);
+  }, { site: 'docs', before: page(`window.dev = new SimStLink(); fakes.usb.granted.push(dev);`) });
+});
+
+test('a failed build is never replaced by an older image: Flash stops before touching the board', { skip, timeout: 2 * BUILD }, async () => {
+  await withStaticIde(async (page) => {
+    const { evaluate, waitFor, errors } = page, u = ui(page);
+    await waitFor(`document.querySelector('.editor-tab.active')?.title === 'firmware/projects/blinky/main.c'`);
+    await evaluate(edit('blink %lu', 'good %lu'));
+    assert.match(await u.flash(BUILD), /Flashed, verified and started/);
+    await u.idle();
+    const erased = await evaluate(`dev.erased.length`);
+    await evaluate(edit('led_toggle();', 'led_toggle() /* missing semicolon */'));
+    const log = await u.flash(BUILD);
+    assert.match(log, /The build failed, so there is nothing to flash\. Fix the errors shown under Build\./, log);
+    assert.doesNotMatch(log, /Instant flash:/);
+    assert.equal(await evaluate(holdsText('good %lu')), true, 'the board keeps the last good flash');
+    assert.equal(await evaluate(`dev.erased.length`), erased, 'nothing was erased');
+    assert.match(await evaluate(`document.querySelector('#term-build').textContent`), /Build failed/);
+    assert.deepEqual(errors, []);
+  }, { site: 'docs', before: page(`window.dev = new SimStLink(); fakes.usb.granted.push(dev);`) });
+});
+
+test('a project with no prebuilt image is built in the browser, then flashed', { skip, timeout: BUILD }, async () => {
+  await withStaticIde(async (page) => {
+    const { evaluate, errors } = page, u = ui(page);
     await u.select('project', 'button-led');
-    assert.match(await u.flash(), /No firmware image: build first\./);
-    assert.equal(await evaluate(`dev.mode === 1 && !dev.opened`), true, 'the probe was not touched');
-  }, { before: page(`window.dev = new SimStLink({ family: 'h7' }); fakes.usb.granted.push(dev);`) });
+    const log = await u.flash(BUILD);
+    assert.match(log, /Building first: flashing uploads the firmware built from the current sources\./, log);
+    assert.match(log, /Instant flash: .* from your build of the current sources/, log);
+    assert.match(log, /Flashed, verified and started/, log);
+    assert.deepEqual(errors, []);
+  }, { site: 'docs', before: page(`window.dev = new SimStLink({ family: 'h7' }); fakes.usb.granted.push(dev);`) });
 });
 
 // ------------------------------------------------------ serial console --
@@ -400,7 +465,10 @@ test('a firmware built in the browser is what Flash programs', { skip: skip || p
     await waitFor(`/Build succeeded|Build failed/.test(document.querySelector('#term-build').textContent)`, 400000);
     assert.match(await evaluate(`document.querySelector('#term-build').textContent`), /Build succeeded/);
     const log = await u.flash();
-    assert.match(log, /Instant flash: Blinky → STM32H743IITx, [\d.]+ KB from your latest build/, log);
+    const project = await evaluate(`document.querySelector('#project').selectedOptions[0].text`);
+    assert.ok(log.includes(`Instant flash: ${project} → STM32H743IITx, `), log);
+    assert.match(log, /KB from your build of the current sources/, log);
+    assert.doesNotMatch(log, /Building first/, 'the build just made is flashed as is');
     assert.match(log, /Flashed, verified and started/, log);
     assert.equal(await evaluate(`(() => { const sp = new DataView(dev.flash.buffer).getUint32(0, true), pc = new DataView(dev.flash.buffer).getUint32(4, true);
       return sp >= 0x20000000 && sp <= 0x24080000 && (pc & 0xfff00001) === 0x08000001; })()`), true, 'vector table of an H743 image');

@@ -135,6 +135,10 @@ export async function browserBuild({ target = 'h743', project = 'doom', projectC
     if (text === null) throw new Error(`Missing build source: ${path}`);
     await session.writeFile(`/src/${path}`, text);
   }));
+  // The session keeps its files between builds, and clang does not replace an
+  // output that already exists: without this, every rebuild in the same page
+  // would link the first build's objects and hand back its firmware.
+  await session.remove('/out');
   // The linker wildcard rules place large DOOM arrays by input object basename.
   const objects = [];
   for (let i = 0; i < paths.length; i++) {
