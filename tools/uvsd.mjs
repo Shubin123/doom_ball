@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -66,6 +67,10 @@ function steps(repo, phase) {
     arm: () => (ARM ? null : 'arm-none-eabi-gcc not found (PATH, ARM_GCC_PATH or ~/.local/toolchains)'),
     cmake: () => (which('cmake') ? null : 'cmake is not installed'),
     pico: () => (fs.existsSync(path.join(PICO_SDK, 'pico_sdk_init.cmake')) ? null : `Pico SDK not found (PICO_SDK_PATH or ${shown(PICO_SDK)}; run setup)`),
+    node: () => (which('node') && which('npm') ? null : 'node and npm are not installed'),
+    'arduino-cli': () => (which('arduino-cli') ? null : 'arduino-cli is not installed (brew install arduino-cli)'),
+    shellcheck: () => (which('shellcheck') ? null : 'shellcheck is not installed (brew install shellcheck)'),
+    'clang-format': () => (which('clang-format') ? null : 'clang-format is not installed (brew install clang-format)'),
     nrf: () => (fs.existsSync(path.join(NRF_SDK, 'modules/nrfx/nrfx.h')) ? null : `nRF5 SDK 17.1.0 not found (NRF5_SDK_PATH or ${shown(NRF_SDK)}; run setup)`),
   };
   const all = (...keys) => () => keys.map((k) => need[k]()).find(Boolean) || null;
@@ -119,28 +124,71 @@ function report(repo, label, status, detail = '') {
   const line = `${status.padEnd(4)} ${repo.id}: ${label}${detail ? ` (${detail})` : ''}`;
   console.log(status === 'FAIL' ? `\x1b[31m${line}\x1b[0m` : status === 'SKIP' ? `\x1b[33m${line}\x1b[0m` : line);
 }
-// Altium .SchDoc/.PcbDoc/... files are OLE compound documents and ActiveBOM
-// .BomDoc files are '|RECORD=' text; a Git LFS pointer, an HTML error page or
-// a truncated download is neither.
-function checkAltium(dir) {
-  const files = run('git', ['ls-files'], dir).out.split('\n')
-    .filter((f) => /\.(SchDoc|PcbDoc|SchLib|PcbLib|BomDoc)$/i.test(f));
+// Hardware design repositories: every design and fabrication file is intact.
+//   Altium .SchDoc/.PcbDoc/.SchLib/.PcbLib/.IntLib  OLE compound document
+//   Altium ActiveBOM .BomDoc                         '|RECORD=' text
+//   Gerber .gbr   ends with M02*; Altium's %TF.MD5 matches the file
+//                 (MD5 of everything before it, line breaks removed)
+//   .zip          unzip -t passes;  .step/.stp  ISO-10303-21 header
+//   KiCad .kicad_sch/_pcb/_sym/_mod  balanced s-expression
+// A Git LFS pointer, an HTML error page or a truncated download fails.
+function checkHardware(dir) {
+  const files = run('git', ['ls-files', '-z'], dir).out.split('\0').filter(Boolean);
   const OLE = Buffer.from('d0cf11e0a1b11ae1', 'hex');
-  const bad = files.filter((f) => {
-    const head = Buffer.alloc(8);
-    const fd = fs.openSync(path.join(dir, f), 'r');
-    fs.readSync(fd, head, 0, 8, 0); fs.closeSync(fd);
-    return /\.BomDoc$/i.test(f) ? head.toString('latin1') !== '|RECORD=' : !head.equals(OLE);
+  const bad = [], counts = {};
+  const count = (kind) => { counts[kind] = (counts[kind] || 0) + 1; };
+  for (const f of files) {
+    const full = path.join(dir, f), ext = path.extname(f).toLowerCase();
+    if (!fs.existsSync(full)) { bad.push(`${f} (missing)`); continue; }
+    if (['.schdoc', '.pcbdoc', '.schlib', '.pcblib', '.intlib'].includes(ext)) {
+      const head = Buffer.alloc(8), fd = fs.openSync(full, 'r');
+      fs.readSync(fd, head, 0, 8, 0); fs.closeSync(fd);
+      if (!head.equals(OLE)) bad.push(f); else count('Altium');
+    } else if (ext === '.bomdoc') {
+      if (!fs.readFileSync(full, 'latin1').startsWith('|RECORD=')) bad.push(f); else count('BOM');
+    } else if (ext === '.gbr') {
+      const text = fs.readFileSync(full, 'latin1');
+      const md5 = text.match(/%TF\.MD5,([0-9a-f]{32})\*%/);
+      const ok = /M02\*\s*$/.test(text) && (!md5 || crypto.createHash('md5').update(text.slice(0, md5.index).replace(/[\r\n]/g, ''), 'latin1').digest('hex') === md5[1]);
+      if (!ok) bad.push(f); else count('Gerber');
+    } else if (ext === '.zip') {
+      if (run('unzip', ['-tqq', full], dir).code !== 0) bad.push(f); else count('zip');
+    } else if (ext === '.step' || ext === '.stp') {
+      if (!fs.readFileSync(full, 'latin1').slice(0, 64).includes('ISO-10303-21')) bad.push(f); else count('STEP');
+    } else if (/^\.kicad_(sch|pcb|sym|mod)$/.test(ext)) {
+      let depth = 0, inString = false, escaped = false, ok = true;
+      for (const ch of fs.readFileSync(full, 'utf8')) {
+        if (inString) { if (escaped) escaped = false; else if (ch === '\\') escaped = true; else if (ch === '"') inString = false; continue; }
+        if (ch === '"') inString = true; else if (ch === '(') depth++; else if (ch === ')' && --depth < 0) ok = false;
+      }
+      if (!ok || depth !== 0) bad.push(f); else count('KiCad');
+    } else if (fs.statSync(full).size < 200 && fs.readFileSync(full, 'latin1').startsWith('version https://git-lfs')) {
+      bad.push(`${f} (LFS pointer)`);
+    }
+  }
+  const summary = Object.entries(counts).map(([k, n]) => `${n} ${k}`).join(', ');
+  if (!files.length) return { code: 0, out: 'the default branch has no files' };
+  return { code: bad.length ? 1 : 0, out: bad.length ? `damaged: ${bad.slice(0, 8).join(', ')}${bad.length > 8 ? ` and ${bad.length - 8} more` : ''}` : `${files.length} files checked: ${summary || 'no design files'}` };
+}
+// Repositories of documents (CAD, notes): every tracked file is checked out
+// with content, not left as a Git LFS pointer.
+function checkFiles(dir) {
+  const files = run('git', ['ls-files', '-z'], dir).out.split('\0').filter(Boolean);
+  const pointers = files.filter((f) => {
+    const full = path.join(dir, f);
+    if (!fs.existsSync(full) || fs.statSync(full).size > 200) return false;
+    return fs.readFileSync(full, 'latin1').startsWith('version https://git-lfs');
   });
-  const docs = files.filter((f) => /\.(SchDoc|PcbDoc)$/i.test(f)).length;
-  return { code: files.length && !bad.length ? 0 : 1, out: bad.length ? `not Altium documents: ${bad.join(', ')}` : `${docs} schematic/PCB documents` };
+  const missing = files.filter((f) => !fs.existsSync(path.join(dir, f)));
+  return { code: files.length && !pointers.length && !missing.length ? 0 : 1,
+    out: !files.length ? 'no files' : pointers.length || missing.length ? `LFS pointers: ${pointers.join(', ') || 'none'}; missing: ${missing.join(', ') || 'none'}` : `${files.length} files` };
 }
 function runSteps(repo, phase) {
   for (const [label, requirement, cmd, args, cwd, extraEnv] of steps(repo, phase)) {
     const missing = requirement();
     if (missing) { report(repo, label, 'SKIP', missing); continue; }
-    if (cmd === 'altium') {
-      const r = checkAltium(path.join(ROOT, 'uvsd', repo.id));
+    if (cmd === 'hardware' || cmd === 'files') {
+      const r = (cmd === 'hardware' ? checkHardware : checkFiles)(path.join(ROOT, 'uvsd', repo.id));
       report(repo, label, r.code === 0 ? 'PASS' : 'FAIL', r.out);
       continue;
     }

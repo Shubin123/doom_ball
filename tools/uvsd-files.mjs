@@ -1,5 +1,6 @@
-// Source files of the public UVic Satellite Design repositories under uvsd/
-// that the IDE lists and the Pages site publishes: files tracked by each
+// Source files of the UVic Satellite Design repositories under uvsd/ that the
+// IDE lists and the Pages site publishes: the public DOOM balloon software
+// repositories ("ide": true in uvsd/repos.json), files tracked by each
 // submodule (not fetched SDKs or build output), text sources only.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +15,7 @@ export function uvsdRepos(root) {
 export function uvsdSourceFiles(root) {
   const files = [];
   for (const repo of uvsdRepos(root)) {
-    if (repo.private) continue;
+    if (repo.private || !repo.ide) continue;
     const dir = path.join(root, 'uvsd', repo.id);
     if (!fs.existsSync(path.join(dir, '.git'))) continue;
     const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\0');

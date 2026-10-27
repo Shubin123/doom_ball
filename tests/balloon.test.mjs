@@ -192,7 +192,8 @@ test('balloon page: DOOM over the RF and UART links, keys up the uplink', { skip
     assert.deepEqual(external, [], 'nothing is loaded from other hosts');
     assert.equal(await page(`document.querySelectorAll('#obc-tasks tr').length`), 5);
     assert.match(await page(`document.querySelector('#grc-meta').textContent`), /915 MHz · 2\.5 Msps · 625 ksym\/s/);
-    assert.equal(await page(`document.querySelectorAll('#repo-table tr').length`), 11);
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'uvsd/repos.json'), 'utf8'));
+    assert.equal(await page(`document.querySelectorAll('#repo-table tr.repo').length`), manifest.repos.length);
     await page(`document.querySelector('#btn-start').click()`);
     await waitFor(`/^\\d+ frames/.test(document.querySelector('#rx-state').textContent) && parseInt(document.querySelector('#rx-state').textContent) >= 5`, 60000);
     await page(`document.querySelector('#ground-screen').focus()`);

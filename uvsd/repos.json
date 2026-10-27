@@ -60,7 +60,9 @@
             "ci/firmware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-gs",
@@ -120,7 +122,9 @@
             "-q"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-pico-bridge",
@@ -170,7 +174,9 @@
           ],
           "cwd": "spi_connection"
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-gnu-radio",
@@ -215,7 +221,9 @@
             "tests/replay_recordings.py"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-nrf-doom",
@@ -255,7 +263,9 @@
           ],
           "cwd": "nrfdoom/nrf5340dk/armgcc"
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-obc-pcb-v2",
@@ -265,12 +275,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-obc-pcb",
@@ -281,12 +292,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-eps-pcb",
@@ -297,12 +309,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-ttc-pcb",
@@ -313,12 +326,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-nrf-pcb",
@@ -329,12 +343,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     }
   ]
 }
