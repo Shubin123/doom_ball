@@ -48,7 +48,7 @@ const PICO_SDK = process.env.PICO_SDK_PATH || path.join(DEPS, 'pico-sdk');
 const NRF_SDK = process.env.NRF5_SDK_PATH || path.join(DEPS, 'nRF5_SDK_17.1.0');
 // Where an SDK lives, relative to the checkout when it is inside it.
 const shown = (dir) => (dir.startsWith(ROOT + path.sep) ? path.relative(ROOT, dir) : dir);
-const env = { ...process.env, PATH: [ARM, process.env.PATH].filter(Boolean).join(path.delimiter), PICO_SDK_PATH: PICO_SDK };
+const env = { ...process.env, PATH: [ARM, process.env.PATH].filter(Boolean).join(path.delimiter), PICO_SDK_PATH: PICO_SDK, UVSD_CACHE: DEPS };
 
 function checkedOut(repo) {
   return fs.existsSync(path.join(ROOT, 'uvsd', repo.id, '.git'));

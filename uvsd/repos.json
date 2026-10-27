@@ -1093,6 +1093,219 @@
       ],
       "project": "SatNOGS ground station",
       "private": true
+    },
+    {
+      "id": "COMP_SLIP-OBC",
+      "name": "SLIP OBC firmware",
+      "role": "STM32H743 FreeRTOS on-board computer: sensors, GPS, OV5640 cameras, flash/SD logging, CC1201 TTC link",
+      "lang": "C, Python",
+      "setup": [
+        {
+          "label": "fetch STM32CubeH7 v1.12.1 HAL, CMSIS, FreeRTOS, FatFs (cached in uvsd/.deps)",
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"\nif [ -f \"$C/.done\" ]; then echo \"STM32CubeH7 v1.12.1 parts already in $C\"; exit 0; fi\nrm -rf \"$C.tmp\"; mkdir -p \"$C.tmp\"\nget() { mkdir -p \"$C.tmp/$2\"; git -C \"$C.tmp/$2\" init -q; git -C \"$C.tmp/$2\" fetch -q --depth 1 \"https://github.com/STMicroelectronics/$1.git\" \"$3\"; git -C \"$C.tmp/$2\" -c advice.detachedHead=false checkout -q FETCH_HEAD; rm -rf \"$C.tmp/$2/.git\"; }\nget stm32h7xx_hal_driver Drivers/STM32H7xx_HAL_Driver 57ed86b4c358e2333a71fd895b17f1ccdb68739e\nget cmsis_device_h7 Drivers/CMSIS/Device/ST/STM32H7xx e8d40ae6e2fa06afe5b46d24756f141b363342a7\nget stm32h7xx-nucleo-bsp Drivers/BSP/STM32H7xx_Nucleo 9f1a34f3af4d7a02da939c094131a90833be4a0c\ngit clone -q --filter=blob:none --no-checkout --depth 1 -b v1.12.1 https://github.com/STMicroelectronics/STM32CubeH7.git \"$C.tmp/cube\" 2>/dev/null\ngit -C \"$C.tmp/cube\" sparse-checkout set --no-cone /Drivers/CMSIS/Include/ /Middlewares/Third_Party/FreeRTOS/Source/ /Middlewares/Third_Party/FatFs/src/\ngit -C \"$C.tmp/cube\" -c advice.detachedHead=false checkout -q\nmv \"$C.tmp/cube/Drivers/CMSIS/Include\" \"$C.tmp/Drivers/CMSIS/Include\"\nmkdir -p \"$C.tmp/Middlewares/Third_Party\"; mv \"$C.tmp/cube/Middlewares/Third_Party/FreeRTOS\" \"$C.tmp/cube/Middlewares/Third_Party/FatFs\" \"$C.tmp/Middlewares/Third_Party/\"\nrm -rf \"$C.tmp/cube\"; touch \"$C.tmp/.done\"; rm -rf \"$C\"; mv \"$C.tmp\" \"$C\"\necho \"STM32CubeH7 v1.12.1 parts fetched into $C\""
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "hil_test.py parses (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        },
+        {
+          "label": "STM32H743 firmware compiles (arm-none-eabi-gcc -c, no link)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"; [ -f \"$C/.done\" ] || { echo \"STM32CubeH7 v1.12.1 parts missing in $C: run setup\"; exit 1; }\ncd project; R=$C/Middlewares/Third_Party/FreeRTOS/Source; F=$C/Middlewares/Third_Party/FatFs/src\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -fpermissive -ffunction-sections -fdata-sections -DDEBUG -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -IFATFS/App -IFATFS/Target -I$C/Drivers/STM32H7xx_HAL_Driver/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I$C/Drivers/CMSIS/Device/ST/STM32H7xx/Include -I$C/Drivers/CMSIS/Include -I$R/include -I$R/CMSIS_RTOS_V2 -I$R/portable/GCC/ARM_CM4F -I$F\"\nn=0; for s in Core/Src/*.c FATFS/App/*.c FATFS/Target/*.c $(ls $C/Drivers/STM32H7xx_HAL_Driver/Src/*.c | grep -v _template) $R/croutine.c $R/event_groups.c $R/list.c $R/queue.c $R/stream_buffer.c $R/tasks.c $R/timers.c $R/CMSIS_RTOS_V2/cmsis_os2.c $R/portable/MemMang/heap_4.c $R/portable/GCC/ARM_CM4F/port.c $F/diskio.c $F/ff.c $F/ff_gen_drv.c $F/option/syscall.c; do arm-none-eabi-gcc $CF -c \"$s\" -o /dev/null; n=$((n+1)); done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o /dev/null\necho \"compiled $n C files + startup for STM32H743 (no link)\""
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP-GS",
+      "name": "SLIP ground station",
+      "role": "PyQt6 ground station GUI: telemetry graphs, image reassembly (bin to JPEG), command uplink",
+      "lang": "Python",
+      "setup": [
+        {
+          "label": "resolve requirements.txt + pytest, pytest-qt (Python 3.11, as Dockerfile.test)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.11",
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "pytest==9.1.1",
+            "--with",
+            "pytest-qt==4.5.0",
+            "python",
+            "-c",
+            "import PyQt6.QtWidgets, pytest, pytestqt"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "pytest -v (headless Qt, as CI's xvfb-run pytest -v)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.11",
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "pytest==9.1.1",
+            "--with",
+            "pytest-qt==4.5.0",
+            "python",
+            "-c",
+            "import os,sys,shutil,pytest; os.environ.setdefault('QT_QPA_PLATFORM','offscreen'); r=pytest.main(['-v']); shutil.rmtree('backend_tests/test_bin_to_jpeg/noisy_binary_images', ignore_errors=True); sys.exit(r)"
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP_SDR",
+      "name": "SLIP SDR flowgraphs",
+      "role": "GNU Radio TX/RX flowgraphs (LimeSDR Mini, GFSK) and packet parser for the CC1201 link",
+      "lang": "Python, GNU Radio",
+      "setup": [],
+      "test": [
+        {
+          "label": "all .py files parse (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        },
+        {
+          "label": "parse_output.py decodes scripts/output.txt",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "scripts/parse_output.py"
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP_TTC",
+      "name": "SLIP TTC CC1201 driver",
+      "role": "STM32H743 + CC1201 transceiver SPI driver, SmartRF register config and hardware tests",
+      "lang": "C",
+      "setup": [
+        {
+          "label": "fetch STM32CubeH7 v1.12.1 HAL, CMSIS, Nucleo BSP (cached in uvsd/.deps)",
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"\nif [ -f \"$C/.done\" ]; then echo \"STM32CubeH7 v1.12.1 parts already in $C\"; exit 0; fi\nrm -rf \"$C.tmp\"; mkdir -p \"$C.tmp\"\nget() { mkdir -p \"$C.tmp/$2\"; git -C \"$C.tmp/$2\" init -q; git -C \"$C.tmp/$2\" fetch -q --depth 1 \"https://github.com/STMicroelectronics/$1.git\" \"$3\"; git -C \"$C.tmp/$2\" -c advice.detachedHead=false checkout -q FETCH_HEAD; rm -rf \"$C.tmp/$2/.git\"; }\nget stm32h7xx_hal_driver Drivers/STM32H7xx_HAL_Driver 57ed86b4c358e2333a71fd895b17f1ccdb68739e\nget cmsis_device_h7 Drivers/CMSIS/Device/ST/STM32H7xx e8d40ae6e2fa06afe5b46d24756f141b363342a7\nget stm32h7xx-nucleo-bsp Drivers/BSP/STM32H7xx_Nucleo 9f1a34f3af4d7a02da939c094131a90833be4a0c\ngit clone -q --filter=blob:none --no-checkout --depth 1 -b v1.12.1 https://github.com/STMicroelectronics/STM32CubeH7.git \"$C.tmp/cube\" 2>/dev/null\ngit -C \"$C.tmp/cube\" sparse-checkout set --no-cone /Drivers/CMSIS/Include/ /Middlewares/Third_Party/FreeRTOS/Source/ /Middlewares/Third_Party/FatFs/src/\ngit -C \"$C.tmp/cube\" -c advice.detachedHead=false checkout -q\nmv \"$C.tmp/cube/Drivers/CMSIS/Include\" \"$C.tmp/Drivers/CMSIS/Include\"\nmkdir -p \"$C.tmp/Middlewares/Third_Party\"; mv \"$C.tmp/cube/Middlewares/Third_Party/FreeRTOS\" \"$C.tmp/cube/Middlewares/Third_Party/FatFs\" \"$C.tmp/Middlewares/Third_Party/\"\nrm -rf \"$C.tmp/cube\"; touch \"$C.tmp/.done\"; rm -rf \"$C\"; mv \"$C.tmp\" \"$C\"\necho \"STM32CubeH7 v1.12.1 parts fetched into $C\""
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "STM32H743 firmware build + link (arm-none-eabi-gcc)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"; [ -f \"$C/.done\" ] || { echo \"STM32CubeH7 v1.12.1 parts missing in $C: run setup\"; exit 1; }\nO=$(mktemp -d); trap 'rm -rf \"$O\"' EXIT; cd STM_to_CC1201\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -ffunction-sections -fdata-sections -DDEBUG -DUSE_PWR_LDO_SUPPLY -DUSE_NUCLEO_64 -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I$C/Drivers/BSP/STM32H7xx_Nucleo -I$C/Drivers/CMSIS/Device/ST/STM32H7xx/Include -I$C/Drivers/CMSIS/Include\"\nn=0; for s in Core/Src/*.c $C/Drivers/BSP/STM32H7xx_Nucleo/stm32h7xx_nucleo.c $(ls $C/Drivers/STM32H7xx_HAL_Driver/Src/*.c | grep -v _template); do n=$((n+1)); arm-none-eabi-gcc $CF -c \"$s\" -o \"$O/$n.o\"; done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o \"$O/startup.o\"\narm-none-eabi-gcc $FL \"$O\"/*.o -TSTM32H743ZITX_FLASH.ld --specs=nosys.specs --specs=nano.specs -Wl,--gc-sections -static -Wl,--start-group -lc -lm -Wl,--end-group -o \"$O/STM_to_CC1201.elf\"\narm-none-eabi-size \"$O/STM_to_CC1201.elf\""
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "HAB_OBC",
+      "name": "HAB OBC firmware",
+      "role": "High-altitude balloon STM32H743 OBC: battery/ADC, APRS position, cutdown, flash logging",
+      "lang": "C, Python",
+      "setup": [],
+      "test": [
+        {
+          "label": "STM32H743 firmware build and link (arm-none-eabi-gcc, committed HAL and FreeRTOS)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nO=$(mktemp -d); trap 'rm -rf \"$O\"' EXIT; R=Middlewares/Third_Party/FreeRTOS/Source\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -ffunction-sections -fdata-sections -DDEBUG -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -I$R/include -I$R/CMSIS_RTOS_V2 -I$R/portable/GCC/ARM_CM4F\"\nn=0; for s in $(ls Core/Src/*.c | grep -v syscalls.c) Drivers/STM32H7xx_HAL_Driver/Src/*.c $(find $R -name \"*.c\"); do n=$((n+1)); arm-none-eabi-gcc $CF -c \"$s\" -o \"$O/$n.o\"; done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o \"$O/startup.o\"\narm-none-eabi-gcc $FL \"$O\"/*.o -TSTM32H743ZITX_FLASH.ld --specs=nosys.specs --specs=nano.specs -Wl,--gc-sections -static -Wl,--start-group -lc -lm -Wl,--end-group -o \"$O/weatherballoon.elf\"\narm-none-eabi-size \"$O/weatherballoon.elf\""
+          ]
+        },
+        {
+          "label": "testing/read_serial.py parses (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        }
+      ],
+      "project": "High-altitude balloon"
     }
   ]
 }
