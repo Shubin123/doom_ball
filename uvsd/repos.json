@@ -772,6 +772,327 @@
           ]
         }
       ]
+    },
+    {
+      "id": "UVSD-Star-tracker",
+      "name": "Star tracker",
+      "role": "Lost-in-space star identification and star-field sensor simulator (C++), plus a Python centroid/feature pipeline",
+      "lang": "C++17, Python",
+      "setup": [
+        {
+          "label": "Fetch Python deps for the centroid pipeline",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "numpy",
+            "--with",
+            "opencv-python-headless",
+            "python",
+            "-B",
+            "-c",
+            "import numpy, cv2; print('numpy', numpy.__version__, 'cv2', cv2.__version__)"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Create the gitignored build dir",
+          "run": [
+            "mkdir",
+            "-p",
+            "out"
+          ]
+        },
+        {
+          "label": "Build the simulator with the host C++ compiler",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "c++",
+            "-std=c++17",
+            "-O2",
+            "-w",
+            "-o",
+            "out/star_tracker",
+            "astrometry.cpp",
+            "database.cpp",
+            "linear_algebra.cpp",
+            "sensor_sim.cpp",
+            "Source.cpp",
+            "trees.cpp"
+          ]
+        },
+        {
+          "label": "Render a synthetic star field (writes out/test_starfield.png)",
+          "run": [
+            "sh",
+            "-c",
+            "cd out && ./star_tracker"
+          ]
+        },
+        {
+          "label": "Python centroid and feature extraction smoke test",
+          "needs": [
+            "uv"
+          ],
+          "cwd": "python",
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "numpy",
+            "--with",
+            "opencv-python-headless",
+            "python",
+            "-B",
+            "-c",
+            "import numpy as np, catalog_parse, tumble, synthesize_image, process_centroids, centroids, feature_extraction\nimg = np.zeros((64, 64), np.uint16)\nstars = [(12, 10), (30, 40), (50, 20), (8, 50)]\nfor x, y in stars: img[y-1:y+2, x-1:x+2] = 1000\ncs = centroids.extract_centroids(img, 50.0)\npts = sorted((round(s.x), round(s.y)) for s in cs)\nassert pts == sorted(stars), pts\nang, nbr = feature_extraction.extract_features([(s.x, s.y) for s in cs], 2, 0.5, 1.0, 64, 64)\nassert ang.shape == (4, 2) and (ang > 0).all(), ang\nprint('centroids', pts, 'features', ang.shape)"
+          ]
+        }
+      ],
+      "project": "ADCS and star tracker"
+    },
+    {
+      "id": "ADCS_Dev",
+      "name": "ADCS reaction wheel",
+      "role": "Reaction-wheel ADCS hardware (Altium/KiCad PCBs, SolidWorks) with an STSPIN230 motor-drive test sketch for the ItsyBitsy M4",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the Adafruit board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index",
+            "--additional-urls",
+            "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json"
+          ]
+        },
+        {
+          "label": "Install the Adafruit SAMD core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "adafruit:samd@1.7.17",
+            "--additional-urls",
+            "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the STSPIN230 driver sketch for the ItsyBitsy M4",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "adafruit:samd:adafruit_itsybitsy_m4",
+            "Arduino_Test/STSPIN230_Driver_No_Feedback"
+          ]
+        }
+      ],
+      "project": "ADCS and star tracker",
+      "private": true
+    },
+    {
+      "id": "i2c_LED_Matrix",
+      "name": "I2C LED matrix",
+      "role": "AS1115 8x8 LED matrix driver and I2C bus scanner sketches from the soldering SkillDev",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the Arduino board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index"
+          ]
+        },
+        {
+          "label": "Install the Arduino AVR core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "arduino:avr@1.8.8"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the AS1115 matrix sketch for the Uno",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "arduino:avr:uno",
+            "as1115"
+          ]
+        },
+        {
+          "label": "Compile the I2C scanner sketch for the Uno",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "arduino:avr:uno",
+            "i2c_scanner"
+          ]
+        }
+      ],
+      "project": "Libraries and training"
+    },
+    {
+      "id": "satnogs_relayCtrl",
+      "name": "SatNOGS relay controller",
+      "role": "Serial/GPIO-controlled relay and fan firmware for the SatNOGS ground station (Anet ATmega1284P board)",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the MightyCore board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index",
+            "--additional-urls",
+            "https://mcudude.github.io/MightyCore/package_MCUdude_MightyCore_index.json"
+          ]
+        },
+        {
+          "label": "Install the MightyCore ATmega1284P core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "MightyCore:avr@3.1.0",
+            "--additional-urls",
+            "https://mcudude.github.io/MightyCore/package_MCUdude_MightyCore_index.json"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the relay sketch for the ATmega1284P (Sanguino pinout)",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "sh",
+            "-c",
+            "t=$(mktemp -d) && mkdir \"$t/triggerRelays\" && cp triggerRelays.ino \"$t/triggerRelays/\" && arduino-cli compile --fqbn MightyCore:avr:1284:variant=modelP,pinout=sanguino,clock=16MHz_external \"$t/triggerRelays\"; s=$?; rm -rf \"$t\"; exit $s"
+          ]
+        }
+      ],
+      "project": "SatNOGS ground station",
+      "private": true
+    },
+    {
+      "id": "satnogs",
+      "name": "SatNOGS station scripts",
+      "role": "Provisioning, hardening and launch scripts for the UVSD SatNOGS ground-station host",
+      "lang": "Shell, Python",
+      "setup": [
+        {
+          "label": "Fetch pyserial for the relay control script",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "pyserial",
+            "python",
+            "-B",
+            "-c",
+            "import serial; print('pyserial', serial.__version__)"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Parse every script with bash -n",
+          "run": [
+            "bash",
+            "-c",
+            "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done; echo \"parsed $(ls scripts/*.sh | wc -l | tr -d ' ') scripts\""
+          ]
+        },
+        {
+          "label": "Shellcheck the scripts (errors only)",
+          "needs": [
+            "shellcheck"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "shellcheck --shell=bash --severity=error scripts/*.sh && echo shellcheck clean"
+          ]
+        },
+        {
+          "label": "Dry-run the client launcher with a stub docker",
+          "run": [
+            "bash",
+            "-c",
+            "d=$(mktemp -d) && printf '#!/bin/sh\\necho stub: docker \"$@\"\\n' > \"$d/docker\" && chmod +x \"$d/docker\" && PATH=\"$d:$PATH\" bash scripts/run_satnogs_client.sh; s=$?; rm -rf \"$d\"; exit $s"
+          ]
+        },
+        {
+          "label": "Relay control script rejects bad arguments",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "pyserial",
+            "python",
+            "-B",
+            "-c",
+            "import sys\nsys.path.insert(0, 'scripts')\nimport relay_control\nfor argv, err in ((['r3', 'on'], ValueError), (['r1', 'dim'], ValueError), (['r1', 'on'], RuntimeError)):\n    sys.argv = ['relay_control.py'] + argv\n    try:\n        relay_control.main()\n    except err as e:\n        print('ok', argv, type(e).__name__)\n    else:\n        sys.exit('no error for %s' % argv)"
+          ]
+        }
+      ],
+      "project": "SatNOGS ground station",
+      "private": true
     }
   ]
 }
