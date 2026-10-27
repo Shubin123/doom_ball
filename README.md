@@ -77,8 +77,23 @@ or Edge.
 ## DOOM Balloon (UVic Satellite Design)
 
 `balloon.html` (the **Balloon link** button in the IDE) demonstrates the
-UVic Satellite Design DOOM balloon with the code from its repositories, which
-are git submodules under `uvsd/`:
+UVic Satellite Design DOOM balloon with the code from its repositories.
+
+All 37 UVicSatelliteDesign repositories are git submodules under `uvsd/`.
+Each one's project, role, setup and tests are in `uvsd/repos.json`:
+
+- DOOM balloon
+- SLIP CubeSat
+- high-altitude balloon
+- MARMOTSat
+- ADCS and star tracker
+- SatNOGS ground station
+- website
+- libraries and training
+- mechanical and SDR
+
+They are shallow clones. The 20 private repositories are `update = none`, so
+public clones skip them. The DOOM balloon ones the page runs:
 
 | Repository | What it is |
 | --- | --- |
@@ -133,18 +148,42 @@ node tools/uvsd.mjs setup             # private ones if you have access, Pico SD
 node tools/uvsd.mjs test              # each repository's own build and tests
 ```
 
-`tools/uvsd.mjs test` runs, for each repository:
+`tools/uvsd.mjs test` runs each repository's own CI where it has one, and
+otherwise its documented build:
 
-- `uvsd-doom-obc`: its unit tests and cppcheck as in CI, and the STM32H733
-  firmware build.
-- `uvsd-doom-gs`: ruff, mypy and pytest.
-- `uvsd-pico-bridge`: the receiver test and the RP2350 firmware build.
-- `uvsd-doom-gnu-radio`: the viewer replay test.
-- `uvsd-nrf-doom`: both nRF5340 core builds.
-- The Altium repositories: a check that their documents are intact.
+- DOOM balloon:
+  - `uvsd-doom-obc`: unit tests, cppcheck, and the STM32H733 build.
+  - `uvsd-doom-gs`: ruff, mypy and pytest.
+  - `uvsd-pico-bridge`: the receiver test and the RP2350 build.
+  - `uvsd-doom-gnu-radio`: the viewer replay test.
+  - `uvsd-nrf-doom`: both nRF5340 core builds.
+- SLIP:
+  - `COMP_SLIP-OBC`: the STM32H743 firmware compiles.
+  - `COMP_SLIP_TTC`: the firmware builds and links.
+  - `COMP_SLIP-GS`: CI's pytest suite.
+  - `COMP_SLIP_SDR`: the scripts and output parser.
+- `HAB_OBC`: the firmware builds and links.
+- Arduino sketches, compiled with arduino-cli:
+  - ADCS motor drive (ItsyBitsy M4);
+  - LED matrix (Uno);
+  - SatNOGS relay controller (ATmega1284P).
+- The star tracker builds and renders a star field, and its centroid
+  pipeline is tested.
+- The SatNOGS scripts are linted and dry-run.
+- The website runs `next build` and eslint.
+- `GroundStation` (2024) installs and starts headless.
+- `UVSD-DOOM-old` builds.
+- `demo-repository` (a Git workshop whose `hello.c` is broken on purpose):
+  checks the exercise is intact and that its solution, in
+  `uvsd/checks/demo-repository/`, passes the repository's own workflows.
+- Board, library and EGSE repositories: the `hardware` check:
+  - Altium documents and BOMs;
+  - every Gerber's end marker and Altium MD5;
+  - zip archives, STEP headers and KiCad files.
 
-Tools that are missing are skipped, not failed. SDKs go to `uvsd/.deps/`
-(gitignored).
+Missing tools (uv, Arm GCC, cmake, Node, arduino-cli, shellcheck,
+clang-format) make a step SKIP, not FAIL. SDKs and the STM32Cube cache go to
+`uvsd/.deps/` (gitignored).
 
 After changing `ide/balloon/` or moving a submodule, run
 `node tools/bundle_ide.mjs`. It rebuilds `ide/balloon.js` and

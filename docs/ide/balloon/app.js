@@ -697,10 +697,13 @@ async function renderRepos() {
   let manifest;
   try { manifest = JSON.parse(await readText('uvsd/repos.json')); } catch (error) { byId('repo-table').innerHTML = `<tr><td>${html(error.message)}</td></tr>`; return; }
   const pins = window.UVSD_SOURCES?.pins || {};
-  byId('repo-table').innerHTML = `<tr><th>Repository</th><th>Role</th><th>Language</th><th>Pinned commit</th></tr>` +
-    manifest.repos.map((r) => `<tr><td><a href="${GITHUB}/${r.id}" target="_blank" rel="noopener">${html(r.id)}</a>${r.private ? ' <span class="tag">private</span>' : ''}</td>
+  const projects = [...new Set(manifest.repos.map((r) => r.project || 'Other'))];
+  byId('repo-table').innerHTML = projects.map((project) => {
+    const repos = manifest.repos.filter((r) => (r.project || 'Other') === project);
+    return `<tr><th colspan="4" class="group">${html(project)} · ${repos.length}</th></tr>` + repos.map((r) => `<tr class="repo"><td><a href="${GITHUB}/${r.id}" target="_blank" rel="noopener">${html(r.id)}</a>${r.private ? ' <span class="tag">private</span>' : ''}</td>
       <td>${html(r.role)}</td><td>${html(r.lang)}</td>
       <td class="mono">${pins[r.id] ? `<a href="${GITHUB}/${r.id}/commit/${pins[r.id]}" target="_blank" rel="noopener">${pins[r.id].slice(0, 7)}</a>` : '—'}</td></tr>`).join('');
+  }).join('');
 }
 
 // ---------------------------------------------------------------- start up

@@ -143,6 +143,7 @@ output { font: 12px 'JetBrains Mono', monospace; color: var(--text-bright); min-
 .table th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--border-bright); }
 .table td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
 .table td.num { font-family: 'JetBrains Mono', monospace; text-align: right; white-space: nowrap; }
+.table th.group { padding-top: 12px; color: var(--accent-bright); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
 .table.repos { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .flight-plot { display: block; width: 100%; height: auto; background: var(--plot-bg); border: 1px solid var(--border); border-radius: 6px; }
 .flight-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }

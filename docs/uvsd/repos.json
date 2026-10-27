@@ -60,7 +60,9 @@
             "ci/firmware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-gs",
@@ -120,7 +122,9 @@
             "-q"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-pico-bridge",
@@ -170,7 +174,9 @@
           ],
           "cwd": "spi_connection"
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-gnu-radio",
@@ -215,7 +221,9 @@
             "tests/replay_recordings.py"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-nrf-doom",
@@ -255,7 +263,9 @@
           ],
           "cwd": "nrfdoom/nrf5340dk/armgcc"
         }
-      ]
+      ],
+      "project": "DOOM balloon",
+      "ide": true
     },
     {
       "id": "uvsd-doom-obc-pcb-v2",
@@ -265,12 +275,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-obc-pcb",
@@ -281,12 +292,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-eps-pcb",
@@ -297,12 +309,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-ttc-pcb",
@@ -313,12 +326,13 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
           ]
         }
-      ]
+      ],
+      "project": "DOOM balloon"
     },
     {
       "id": "uvsd-doom-nrf-pcb",
@@ -329,12 +343,969 @@
       "setup": [],
       "test": [
         {
-          "label": "Altium schematic and PCB documents are intact",
+          "label": "design and fabrication files are intact",
           "run": [
-            "altium"
+            "hardware"
+          ]
+        }
+      ],
+      "project": "DOOM balloon"
+    },
+    {
+      "id": "PCB_UVR-SLIP_TTC",
+      "name": "SLIP TTC PCB",
+      "role": "Altium design of the FlatSat TT&C radio board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_SLIP_OBC",
+      "name": "SLIP OBC PCB",
+      "role": "Altium design of the SLIP on-board computer board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_BMS",
+      "name": "SLIP BMS PCB",
+      "role": "Altium and KiCad design of the FlatSat EPS / battery management board",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_CC1201Dev",
+      "name": "CC1201 dev board",
+      "role": "Altium design of a CC1201 transceiver development board",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
           ]
         }
       ]
+    },
+    {
+      "id": "PCB_FlatSat_OBC",
+      "name": "FlatSat OBC PCB",
+      "role": "Altium design of the FlatSat OBC board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_Misc_Dev",
+      "name": "SLIP dev boards",
+      "role": "Miscellaneous SLIP development boards (Altium, Gerbers)",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "AltiumLib",
+      "name": "Altium libraries",
+      "role": "UVSD Altium schematic and footprint libraries",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "AltiumSkillDev",
+      "name": "Altium skill dev",
+      "role": "Reference design for the UVSD Altium skill-development course",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SolderingWorkshopAltium",
+      "name": "Soldering workshop",
+      "role": "Altium files for the UVSD/IEEE soldering workshops",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "OBC_Proto",
+      "name": "OBC prototypes",
+      "role": "Holding folder for OBC prototyping boards (README only so far)",
+      "lang": "Docs",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "UVSD-MECH",
+      "name": "Mechanical",
+      "role": "Part and assembly files (its files were deleted on main)",
+      "lang": "Docs",
+      "project": "Mechanical",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UVSD_SDR",
+      "name": "UVSD SDR",
+      "role": "From-scratch SDR project (README and licence so far)",
+      "lang": "Docs",
+      "project": "SDR",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-website",
+      "name": "UVSD website",
+      "role": "Team website (Next.js static site)",
+      "lang": "TypeScript",
+      "project": "Website",
+      "private": true,
+      "setup": [
+        {
+          "label": "npm ci",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "ci"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "production build with type check (next build)",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "run",
+            "build"
+          ],
+          "env": {
+            "NEXT_TELEMETRY_DISABLED": "1"
+          }
+        },
+        {
+          "label": "eslint",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "run",
+            "lint"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "demo-repository",
+      "name": "Git workshop demo",
+      "role": "Git/GitHub workshop: conflict-demo/hello.c is broken on purpose for students to fix",
+      "lang": "C",
+      "project": "Libraries and training",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "the exercise is intact (hello.c fails to compile as planted)",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "sh",
+            "-c",
+            "! cc -fsyntax-only conflict-demo/hello.c 2>/dev/null"
+          ]
+        },
+        {
+          "label": "the solved exercise passes code-format.yml and compile.yml",
+          "needs": [
+            "cc",
+            "clang-format"
+          ],
+          "run": [
+            "sh",
+            "../checks/demo-repository/solved.sh"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "GroundStation",
+      "name": "HAB ground station",
+      "role": "2024 high-altitude-balloon ground station GUI (PyQt5, Leaflet map, APRS via RTL-SDR)",
+      "lang": "Python",
+      "project": "High-altitude balloon",
+      "private": true,
+      "setup": [
+        {
+          "label": "resolve the pinned requirements (Python 3.12)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "python",
+            "-c",
+            "import PyQt5.QtWebEngineWidgets, pyqtgraph, aprspy"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "black --check",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "black",
+            "--check",
+            "."
+          ]
+        },
+        {
+          "label": "GUI imports and CLI help (headless)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "python",
+            "frontend.py",
+            "-h"
+          ],
+          "env": {
+            "QT_QPA_PLATFORM": "offscreen",
+            "PYTHONDONTWRITEBYTECODE": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "UVSD-DOOM-old",
+      "name": "UVSD DOOM (old)",
+      "role": "Earlier doomgeneric fork with a stub UVSD platform port for streaming DOOM to a ground station",
+      "lang": "C",
+      "project": "DOOM balloon",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "UVSD port compiles",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "cc",
+            "-fsyntax-only",
+            "-Wall",
+            "doomgeneric/doomgeneric_uvsd.c"
+          ]
+        },
+        {
+          "label": "documented X11 build (make -C doomgeneric; needs libx11)",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "make",
+            "-C",
+            "doomgeneric",
+            "-j{JOBS}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TEMP_PAY_EGSE",
+      "name": "PAY EGSE board",
+      "role": "Altium design of the MARMOTSat payload EGSE board (schematics, Gerbers, BOM, STEP)",
+      "lang": "Altium",
+      "project": "MARMOTSat",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        },
+        {
+          "label": "Gerber and drill files parse (gerbonara)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with",
+            "gerbonara==1.5.0",
+            "python",
+            "-W",
+            "ignore",
+            "-c",
+            "import glob; from gerbonara import GerberFile, ExcellonFile; [print(f, len(GerberFile.open(f).objects), 'objects') for f in sorted(glob.glob('manufacturing/*.gbr'))]; print('drill hits', len(list(ExcellonFile.open('manufacturing/PAY_EGSE.TXT').drills())))"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UVSD-Star-tracker",
+      "name": "Star tracker",
+      "role": "Lost-in-space star identification and star-field sensor simulator (C++), plus a Python centroid/feature pipeline",
+      "lang": "C++17, Python",
+      "setup": [
+        {
+          "label": "Fetch Python deps for the centroid pipeline",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "numpy",
+            "--with",
+            "opencv-python-headless",
+            "python",
+            "-B",
+            "-c",
+            "import numpy, cv2; print('numpy', numpy.__version__, 'cv2', cv2.__version__)"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Create the gitignored build dir",
+          "run": [
+            "mkdir",
+            "-p",
+            "out"
+          ]
+        },
+        {
+          "label": "Build the simulator with the host C++ compiler",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "c++",
+            "-std=c++17",
+            "-O2",
+            "-w",
+            "-o",
+            "out/star_tracker",
+            "astrometry.cpp",
+            "database.cpp",
+            "linear_algebra.cpp",
+            "sensor_sim.cpp",
+            "Source.cpp",
+            "trees.cpp"
+          ]
+        },
+        {
+          "label": "Render a synthetic star field (writes out/test_starfield.png)",
+          "run": [
+            "sh",
+            "-c",
+            "cd out && ./star_tracker"
+          ]
+        },
+        {
+          "label": "Python centroid and feature extraction smoke test",
+          "needs": [
+            "uv"
+          ],
+          "cwd": "python",
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "numpy",
+            "--with",
+            "opencv-python-headless",
+            "python",
+            "-B",
+            "-c",
+            "import numpy as np, catalog_parse, tumble, synthesize_image, process_centroids, centroids, feature_extraction\nimg = np.zeros((64, 64), np.uint16)\nstars = [(12, 10), (30, 40), (50, 20), (8, 50)]\nfor x, y in stars: img[y-1:y+2, x-1:x+2] = 1000\ncs = centroids.extract_centroids(img, 50.0)\npts = sorted((round(s.x), round(s.y)) for s in cs)\nassert pts == sorted(stars), pts\nang, nbr = feature_extraction.extract_features([(s.x, s.y) for s in cs], 2, 0.5, 1.0, 64, 64)\nassert ang.shape == (4, 2) and (ang > 0).all(), ang\nprint('centroids', pts, 'features', ang.shape)"
+          ]
+        }
+      ],
+      "project": "ADCS and star tracker"
+    },
+    {
+      "id": "ADCS_Dev",
+      "name": "ADCS reaction wheel",
+      "role": "Reaction-wheel ADCS hardware (Altium/KiCad PCBs, SolidWorks) with an STSPIN230 motor-drive test sketch for the ItsyBitsy M4",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the Adafruit board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index",
+            "--additional-urls",
+            "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json"
+          ]
+        },
+        {
+          "label": "Install the Adafruit SAMD core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "adafruit:samd@1.7.17",
+            "--additional-urls",
+            "https://adafruit.github.io/arduino-board-index/package_adafruit_index.json"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the STSPIN230 driver sketch for the ItsyBitsy M4",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "adafruit:samd:adafruit_itsybitsy_m4",
+            "Arduino_Test/STSPIN230_Driver_No_Feedback"
+          ]
+        }
+      ],
+      "project": "ADCS and star tracker",
+      "private": true
+    },
+    {
+      "id": "i2c_LED_Matrix",
+      "name": "I2C LED matrix",
+      "role": "AS1115 8x8 LED matrix driver and I2C bus scanner sketches from the soldering SkillDev",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the Arduino board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index"
+          ]
+        },
+        {
+          "label": "Install the Arduino AVR core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "arduino:avr@1.8.8"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the AS1115 matrix sketch for the Uno",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "arduino:avr:uno",
+            "as1115"
+          ]
+        },
+        {
+          "label": "Compile the I2C scanner sketch for the Uno",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "compile",
+            "--fqbn",
+            "arduino:avr:uno",
+            "i2c_scanner"
+          ]
+        }
+      ],
+      "project": "Libraries and training"
+    },
+    {
+      "id": "satnogs_relayCtrl",
+      "name": "SatNOGS relay controller",
+      "role": "Serial/GPIO-controlled relay and fan firmware for the SatNOGS ground station (Anet ATmega1284P board)",
+      "lang": "C++ (Arduino)",
+      "setup": [
+        {
+          "label": "Fetch the MightyCore board index",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "update-index",
+            "--additional-urls",
+            "https://mcudude.github.io/MightyCore/package_MCUdude_MightyCore_index.json"
+          ]
+        },
+        {
+          "label": "Install the MightyCore ATmega1284P core",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "arduino-cli",
+            "core",
+            "install",
+            "MightyCore:avr@3.1.0",
+            "--additional-urls",
+            "https://mcudude.github.io/MightyCore/package_MCUdude_MightyCore_index.json"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Compile the relay sketch for the ATmega1284P (Sanguino pinout)",
+          "needs": [
+            "arduino-cli"
+          ],
+          "run": [
+            "sh",
+            "-c",
+            "t=$(mktemp -d) && mkdir \"$t/triggerRelays\" && cp triggerRelays.ino \"$t/triggerRelays/\" && arduino-cli compile --fqbn MightyCore:avr:1284:variant=modelP,pinout=sanguino,clock=16MHz_external \"$t/triggerRelays\"; s=$?; rm -rf \"$t\"; exit $s"
+          ]
+        }
+      ],
+      "project": "SatNOGS ground station",
+      "private": true
+    },
+    {
+      "id": "satnogs",
+      "name": "SatNOGS station scripts",
+      "role": "Provisioning, hardening and launch scripts for the UVSD SatNOGS ground-station host",
+      "lang": "Shell, Python",
+      "setup": [
+        {
+          "label": "Fetch pyserial for the relay control script",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "pyserial",
+            "python",
+            "-B",
+            "-c",
+            "import serial; print('pyserial', serial.__version__)"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "Parse every script with bash -n",
+          "run": [
+            "bash",
+            "-c",
+            "for f in scripts/*.sh; do bash -n \"$f\" || exit 1; done; echo \"parsed $(ls scripts/*.sh | wc -l | tr -d ' ') scripts\""
+          ]
+        },
+        {
+          "label": "Shellcheck the scripts (errors only)",
+          "needs": [
+            "shellcheck"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "shellcheck --shell=bash --severity=error scripts/*.sh && echo shellcheck clean"
+          ]
+        },
+        {
+          "label": "Dry-run the client launcher with a stub docker",
+          "run": [
+            "bash",
+            "-c",
+            "d=$(mktemp -d) && printf '#!/bin/sh\\necho stub: docker \"$@\"\\n' > \"$d/docker\" && chmod +x \"$d/docker\" && PATH=\"$d:$PATH\" bash scripts/run_satnogs_client.sh; s=$?; rm -rf \"$d\"; exit $s"
+          ]
+        },
+        {
+          "label": "Relay control script rejects bad arguments",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--with",
+            "pyserial",
+            "python",
+            "-B",
+            "-c",
+            "import sys\nsys.path.insert(0, 'scripts')\nimport relay_control\nfor argv, err in ((['r3', 'on'], ValueError), (['r1', 'dim'], ValueError), (['r1', 'on'], RuntimeError)):\n    sys.argv = ['relay_control.py'] + argv\n    try:\n        relay_control.main()\n    except err as e:\n        print('ok', argv, type(e).__name__)\n    else:\n        sys.exit('no error for %s' % argv)"
+          ]
+        }
+      ],
+      "project": "SatNOGS ground station",
+      "private": true
+    },
+    {
+      "id": "COMP_SLIP-OBC",
+      "name": "SLIP OBC firmware",
+      "role": "STM32H743 FreeRTOS on-board computer: sensors, GPS, OV5640 cameras, flash/SD logging, CC1201 TTC link",
+      "lang": "C, Python",
+      "setup": [
+        {
+          "label": "fetch STM32CubeH7 v1.12.1 HAL, CMSIS, FreeRTOS, FatFs (cached in uvsd/.deps)",
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"\nif [ -f \"$C/.done\" ]; then echo \"STM32CubeH7 v1.12.1 parts already in $C\"; exit 0; fi\nrm -rf \"$C.tmp\"; mkdir -p \"$C.tmp\"\nget() { mkdir -p \"$C.tmp/$2\"; git -C \"$C.tmp/$2\" init -q; git -C \"$C.tmp/$2\" fetch -q --depth 1 \"https://github.com/STMicroelectronics/$1.git\" \"$3\"; git -C \"$C.tmp/$2\" -c advice.detachedHead=false checkout -q FETCH_HEAD; rm -rf \"$C.tmp/$2/.git\"; }\nget stm32h7xx_hal_driver Drivers/STM32H7xx_HAL_Driver 57ed86b4c358e2333a71fd895b17f1ccdb68739e\nget cmsis_device_h7 Drivers/CMSIS/Device/ST/STM32H7xx e8d40ae6e2fa06afe5b46d24756f141b363342a7\nget stm32h7xx-nucleo-bsp Drivers/BSP/STM32H7xx_Nucleo 9f1a34f3af4d7a02da939c094131a90833be4a0c\ngit clone -q --filter=blob:none --no-checkout --depth 1 -b v1.12.1 https://github.com/STMicroelectronics/STM32CubeH7.git \"$C.tmp/cube\" 2>/dev/null\ngit -C \"$C.tmp/cube\" sparse-checkout set --no-cone /Drivers/CMSIS/Include/ /Middlewares/Third_Party/FreeRTOS/Source/ /Middlewares/Third_Party/FatFs/src/\ngit -C \"$C.tmp/cube\" -c advice.detachedHead=false checkout -q\nmv \"$C.tmp/cube/Drivers/CMSIS/Include\" \"$C.tmp/Drivers/CMSIS/Include\"\nmkdir -p \"$C.tmp/Middlewares/Third_Party\"; mv \"$C.tmp/cube/Middlewares/Third_Party/FreeRTOS\" \"$C.tmp/cube/Middlewares/Third_Party/FatFs\" \"$C.tmp/Middlewares/Third_Party/\"\nrm -rf \"$C.tmp/cube\"; touch \"$C.tmp/.done\"; rm -rf \"$C\"; mv \"$C.tmp\" \"$C\"\necho \"STM32CubeH7 v1.12.1 parts fetched into $C\""
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "hil_test.py parses (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        },
+        {
+          "label": "STM32H743 firmware compiles (arm-none-eabi-gcc -c, no link)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"; [ -f \"$C/.done\" ] || { echo \"STM32CubeH7 v1.12.1 parts missing in $C: run setup\"; exit 1; }\ncd project; R=$C/Middlewares/Third_Party/FreeRTOS/Source; F=$C/Middlewares/Third_Party/FatFs/src\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -fpermissive -ffunction-sections -fdata-sections -DDEBUG -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -IFATFS/App -IFATFS/Target -I$C/Drivers/STM32H7xx_HAL_Driver/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I$C/Drivers/CMSIS/Device/ST/STM32H7xx/Include -I$C/Drivers/CMSIS/Include -I$R/include -I$R/CMSIS_RTOS_V2 -I$R/portable/GCC/ARM_CM4F -I$F\"\nn=0; for s in Core/Src/*.c FATFS/App/*.c FATFS/Target/*.c $(ls $C/Drivers/STM32H7xx_HAL_Driver/Src/*.c | grep -v _template) $R/croutine.c $R/event_groups.c $R/list.c $R/queue.c $R/stream_buffer.c $R/tasks.c $R/timers.c $R/CMSIS_RTOS_V2/cmsis_os2.c $R/portable/MemMang/heap_4.c $R/portable/GCC/ARM_CM4F/port.c $F/diskio.c $F/ff.c $F/ff_gen_drv.c $F/option/syscall.c; do arm-none-eabi-gcc $CF -c \"$s\" -o /dev/null; n=$((n+1)); done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o /dev/null\necho \"compiled $n C files + startup for STM32H743 (no link)\""
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP-GS",
+      "name": "SLIP ground station",
+      "role": "PyQt6 ground station GUI: telemetry graphs, image reassembly (bin to JPEG), command uplink",
+      "lang": "Python",
+      "setup": [
+        {
+          "label": "resolve requirements.txt + pytest, pytest-qt (Python 3.11, as Dockerfile.test)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.11",
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "pytest==9.1.1",
+            "--with",
+            "pytest-qt==4.5.0",
+            "python",
+            "-c",
+            "import PyQt6.QtWidgets, pytest, pytestqt"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "pytest -v (headless Qt, as CI's xvfb-run pytest -v)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.11",
+            "--with-requirements",
+            "requirements.txt",
+            "--with",
+            "pytest==9.1.1",
+            "--with",
+            "pytest-qt==4.5.0",
+            "python",
+            "-c",
+            "import os,sys,shutil,pytest; os.environ.setdefault('QT_QPA_PLATFORM','offscreen'); r=pytest.main(['-v']); shutil.rmtree('backend_tests/test_bin_to_jpeg/noisy_binary_images', ignore_errors=True); sys.exit(r)"
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP_SDR",
+      "name": "SLIP SDR flowgraphs",
+      "role": "GNU Radio TX/RX flowgraphs (LimeSDR Mini, GFSK) and packet parser for the CC1201 link",
+      "lang": "Python, GNU Radio",
+      "setup": [],
+      "test": [
+        {
+          "label": "all .py files parse (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        },
+        {
+          "label": "parse_output.py decodes scripts/output.txt",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "scripts/parse_output.py"
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "COMP_SLIP_TTC",
+      "name": "SLIP TTC CC1201 driver",
+      "role": "STM32H743 + CC1201 transceiver SPI driver, SmartRF register config and hardware tests",
+      "lang": "C",
+      "setup": [
+        {
+          "label": "fetch STM32CubeH7 v1.12.1 HAL, CMSIS, Nucleo BSP (cached in uvsd/.deps)",
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"\nif [ -f \"$C/.done\" ]; then echo \"STM32CubeH7 v1.12.1 parts already in $C\"; exit 0; fi\nrm -rf \"$C.tmp\"; mkdir -p \"$C.tmp\"\nget() { mkdir -p \"$C.tmp/$2\"; git -C \"$C.tmp/$2\" init -q; git -C \"$C.tmp/$2\" fetch -q --depth 1 \"https://github.com/STMicroelectronics/$1.git\" \"$3\"; git -C \"$C.tmp/$2\" -c advice.detachedHead=false checkout -q FETCH_HEAD; rm -rf \"$C.tmp/$2/.git\"; }\nget stm32h7xx_hal_driver Drivers/STM32H7xx_HAL_Driver 57ed86b4c358e2333a71fd895b17f1ccdb68739e\nget cmsis_device_h7 Drivers/CMSIS/Device/ST/STM32H7xx e8d40ae6e2fa06afe5b46d24756f141b363342a7\nget stm32h7xx-nucleo-bsp Drivers/BSP/STM32H7xx_Nucleo 9f1a34f3af4d7a02da939c094131a90833be4a0c\ngit clone -q --filter=blob:none --no-checkout --depth 1 -b v1.12.1 https://github.com/STMicroelectronics/STM32CubeH7.git \"$C.tmp/cube\" 2>/dev/null\ngit -C \"$C.tmp/cube\" sparse-checkout set --no-cone /Drivers/CMSIS/Include/ /Middlewares/Third_Party/FreeRTOS/Source/ /Middlewares/Third_Party/FatFs/src/\ngit -C \"$C.tmp/cube\" -c advice.detachedHead=false checkout -q\nmv \"$C.tmp/cube/Drivers/CMSIS/Include\" \"$C.tmp/Drivers/CMSIS/Include\"\nmkdir -p \"$C.tmp/Middlewares/Third_Party\"; mv \"$C.tmp/cube/Middlewares/Third_Party/FreeRTOS\" \"$C.tmp/cube/Middlewares/Third_Party/FatFs\" \"$C.tmp/Middlewares/Third_Party/\"\nrm -rf \"$C.tmp/cube\"; touch \"$C.tmp/.done\"; rm -rf \"$C\"; mv \"$C.tmp\" \"$C\"\necho \"STM32CubeH7 v1.12.1 parts fetched into $C\""
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "STM32H743 firmware build + link (arm-none-eabi-gcc)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nC=\"${UVSD_CACHE:-$HOME/.cache/uvsd}/stm32cubeh7-v1.12.1\"; [ -f \"$C/.done\" ] || { echo \"STM32CubeH7 v1.12.1 parts missing in $C: run setup\"; exit 1; }\nO=$(mktemp -d); trap 'rm -rf \"$O\"' EXIT; cd STM_to_CC1201\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -ffunction-sections -fdata-sections -DDEBUG -DUSE_PWR_LDO_SUPPLY -DUSE_NUCLEO_64 -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc -I$C/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I$C/Drivers/BSP/STM32H7xx_Nucleo -I$C/Drivers/CMSIS/Device/ST/STM32H7xx/Include -I$C/Drivers/CMSIS/Include\"\nn=0; for s in Core/Src/*.c $C/Drivers/BSP/STM32H7xx_Nucleo/stm32h7xx_nucleo.c $(ls $C/Drivers/STM32H7xx_HAL_Driver/Src/*.c | grep -v _template); do n=$((n+1)); arm-none-eabi-gcc $CF -c \"$s\" -o \"$O/$n.o\"; done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o \"$O/startup.o\"\narm-none-eabi-gcc $FL \"$O\"/*.o -TSTM32H743ZITX_FLASH.ld --specs=nosys.specs --specs=nano.specs -Wl,--gc-sections -static -Wl,--start-group -lc -lm -Wl,--end-group -o \"$O/STM_to_CC1201.elf\"\narm-none-eabi-size \"$O/STM_to_CC1201.elf\""
+          ]
+        }
+      ],
+      "project": "SLIP CubeSat"
+    },
+    {
+      "id": "HAB_OBC",
+      "name": "HAB OBC firmware",
+      "role": "High-altitude balloon STM32H743 OBC: battery/ADC, APRS position, cutdown, flash logging",
+      "lang": "C, Python",
+      "setup": [],
+      "test": [
+        {
+          "label": "STM32H743 firmware build and link (arm-none-eabi-gcc, committed HAL and FreeRTOS)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "bash",
+            "-c",
+            "set -euo pipefail\nO=$(mktemp -d); trap 'rm -rf \"$O\"' EXIT; R=Middlewares/Third_Party/FreeRTOS/Source\nFL=\"-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb\"\nCF=\"$FL -std=gnu11 -O0 -Wall -ffunction-sections -fdata-sections -DDEBUG -DUSE_HAL_DRIVER -DSTM32H743xx -ICore/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy -IDrivers/CMSIS/Device/ST/STM32H7xx/Include -IDrivers/CMSIS/Include -I$R/include -I$R/CMSIS_RTOS_V2 -I$R/portable/GCC/ARM_CM4F\"\nn=0; for s in $(ls Core/Src/*.c | grep -v syscalls.c) Drivers/STM32H7xx_HAL_Driver/Src/*.c $(find $R -name \"*.c\"); do n=$((n+1)); arm-none-eabi-gcc $CF -c \"$s\" -o \"$O/$n.o\"; done\narm-none-eabi-gcc $FL -c -x assembler-with-cpp Core/Startup/startup_stm32h743zitx.s -o \"$O/startup.o\"\narm-none-eabi-gcc $FL \"$O\"/*.o -TSTM32H743ZITX_FLASH.ld --specs=nosys.specs --specs=nano.specs -Wl,--gc-sections -static -Wl,--start-group -lc -lm -Wl,--end-group -o \"$O/weatherballoon.elf\"\narm-none-eabi-size \"$O/weatherballoon.elf\""
+          ]
+        },
+        {
+          "label": "testing/read_serial.py parses (python AST)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "python",
+            "-B",
+            "-c",
+            "import ast,pathlib; fs=sorted(p for p in pathlib.Path('.').rglob('*.py') if '.git' not in p.parts); [ast.parse(p.read_text(), str(p)) for p in fs]; print('parsed', len(fs), 'Python files')"
+          ]
+        }
+      ],
+      "project": "High-altitude balloon"
     }
   ]
 }
