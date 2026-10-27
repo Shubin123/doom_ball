@@ -347,7 +347,8 @@ tests/run_all.sh
   USART1, SPI1 and SDMMC1 modelled. The SD card image holds `DOOM1.WAD`, and
   the ILI9341 SPI stream is decoded into PNG frames. The firmware boots,
   mounts FAT, loads the WAD, and starts and plays E1M1 through its UART key
-  protocol. This optional emulator test uses Python tooling; it is not needed
+  protocol. This optional emulator test uses Python tooling (`tests/emu/requirements.txt`)
+  and builds its SD card image with `mkfs.fat` and `mcopy` (dosfstools, mtools); it is not needed
   by the online demo, local IDE server, firmware, or flashing path.
 
 ![Frames decoded from the H743 firmware's SPI output in the emulator](docs/h743-firmware-emulated.png)

@@ -45,6 +45,8 @@ const UV = which('uv') || [path.join(os.homedir(), '.local/bin/uv'), path.join(o
 const ARM = armToolchain();
 const PICO_SDK = process.env.PICO_SDK_PATH || path.join(DEPS, 'pico-sdk');
 const NRF_SDK = process.env.NRF5_SDK_PATH || path.join(DEPS, 'nRF5_SDK_17.1.0');
+// Where an SDK lives, relative to the checkout when it is inside it.
+const shown = (dir) => (dir.startsWith(ROOT + path.sep) ? path.relative(ROOT, dir) : dir);
 const env = { ...process.env, PATH: [ARM, process.env.PATH].filter(Boolean).join(path.delimiter), PICO_SDK_PATH: PICO_SDK };
 
 function checkedOut(repo) {
@@ -63,8 +65,8 @@ function steps(repo, phase) {
     cppcheck: () => (which('cppcheck') ? null : 'cppcheck is not installed'),
     arm: () => (ARM ? null : 'arm-none-eabi-gcc not found (PATH, ARM_GCC_PATH or ~/.local/toolchains)'),
     cmake: () => (which('cmake') ? null : 'cmake is not installed'),
-    pico: () => (fs.existsSync(path.join(PICO_SDK, 'pico_sdk_init.cmake')) ? null : `Pico SDK not found (PICO_SDK_PATH or ${path.relative(ROOT, PICO_SDK)}; run setup)`),
-    nrf: () => (fs.existsSync(path.join(NRF_SDK, 'modules/nrfx/nrfx.h')) ? null : `nRF5 SDK 17.1.0 not found (NRF5_SDK_PATH or ${path.relative(ROOT, NRF_SDK)}; run setup)`),
+    pico: () => (fs.existsSync(path.join(PICO_SDK, 'pico_sdk_init.cmake')) ? null : `Pico SDK not found (PICO_SDK_PATH or ${shown(PICO_SDK)}; run setup)`),
+    nrf: () => (fs.existsSync(path.join(NRF_SDK, 'modules/nrfx/nrfx.h')) ? null : `nRF5 SDK 17.1.0 not found (NRF5_SDK_PATH or ${shown(NRF_SDK)}; run setup)`),
   };
   const all = (...keys) => () => keys.map((k) => need[k]()).find(Boolean) || null;
   const book = MANIFEST.repos.find((r) => r.id === repo.id)?.[phase] || [];
@@ -165,11 +167,11 @@ function setup(repo) {
   }
   if (repo.sdk === 'pico') {
     const r = fetchShallow('https://github.com/raspberrypi/pico-sdk.git', '2.3.1', PICO_SDK, ['lib/tinyusb']);
-    report(repo, `Pico SDK 2.3.1 in ${path.relative(ROOT, PICO_SDK)}`, r.code === 0 ? 'PASS' : 'FAIL');
+    report(repo, `Pico SDK 2.3.1 in ${shown(PICO_SDK)}`, r.code === 0 ? 'PASS' : 'FAIL');
   }
   if (repo.sdk === 'nrf5') {
     const r = fetchNrf5Sdk();
-    report(repo, `nRF5 SDK 17.1.0 + nrfx v2.4.0 in ${path.relative(ROOT, NRF_SDK)}`, r.code === 0 ? 'PASS' : 'FAIL');
+    report(repo, `nRF5 SDK 17.1.0 + nrfx v2.4.0 in ${shown(NRF_SDK)}`, r.code === 0 ? 'PASS' : 'FAIL');
     if (r.code !== 0) console.log(r.out.trim().split('\n').slice(-15).map((l) => `     | ${l}`).join('\n'));
   }
   runSteps(repo, 'setup');
