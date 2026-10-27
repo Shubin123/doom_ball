@@ -1,0 +1,17 @@
+diff --git a/conflict-demo/hello.c b/conflict-demo/hello.c
+index 3a2bc17..9a9f7b9 100644
+--- a/conflict-demo/hello.c
++++ b/conflict-demo/hello.c
+@@ -17,9 +17,10 @@
+ 
+ #include <stdio.h>
+ 
+-void hello(char* buf) { printf("Hlleo, %s", buf) }
++// Prints "Hello, <buf>!" to stdout without a trailing newline.
++void hello(const char* buf) { printf("Hello, %s!", buf); }
+ 
+ int main() {
+-hello("world");
++    hello("world");
+     return 0;
+ }

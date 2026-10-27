@@ -350,6 +350,428 @@
         }
       ],
       "project": "DOOM balloon"
+    },
+    {
+      "id": "PCB_UVR-SLIP_TTC",
+      "name": "SLIP TTC PCB",
+      "role": "Altium design of the FlatSat TT&C radio board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_SLIP_OBC",
+      "name": "SLIP OBC PCB",
+      "role": "Altium design of the SLIP on-board computer board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_BMS",
+      "name": "SLIP BMS PCB",
+      "role": "Altium and KiCad design of the FlatSat EPS / battery management board",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_CC1201Dev",
+      "name": "CC1201 dev board",
+      "role": "Altium design of a CC1201 transceiver development board",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PCB_FlatSat_OBC",
+      "name": "FlatSat OBC PCB",
+      "role": "Altium design of the FlatSat OBC board, with Gerbers",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "PCB_UVR-SLIP_Misc_Dev",
+      "name": "SLIP dev boards",
+      "role": "Miscellaneous SLIP development boards (Altium, Gerbers)",
+      "lang": "Altium",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "AltiumLib",
+      "name": "Altium libraries",
+      "role": "UVSD Altium schematic and footprint libraries",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "AltiumSkillDev",
+      "name": "Altium skill dev",
+      "role": "Reference design for the UVSD Altium skill-development course",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SolderingWorkshopAltium",
+      "name": "Soldering workshop",
+      "role": "Altium files for the UVSD/IEEE soldering workshops",
+      "lang": "Altium",
+      "project": "Libraries and training",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "OBC_Proto",
+      "name": "OBC prototypes",
+      "role": "Holding folder for OBC prototyping boards (README only so far)",
+      "lang": "Docs",
+      "project": "SLIP CubeSat",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ],
+      "private": true
+    },
+    {
+      "id": "UVSD-MECH",
+      "name": "Mechanical",
+      "role": "Part and assembly files (its files were deleted on main)",
+      "lang": "Docs",
+      "project": "Mechanical",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "UVSD_SDR",
+      "name": "UVSD SDR",
+      "role": "From-scratch SDR project (README and licence so far)",
+      "lang": "Docs",
+      "project": "SDR",
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-website",
+      "name": "UVSD website",
+      "role": "Team website (Next.js static site)",
+      "lang": "TypeScript",
+      "project": "Website",
+      "private": true,
+      "setup": [
+        {
+          "label": "npm ci",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "ci"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "production build with type check (next build)",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "run",
+            "build"
+          ],
+          "env": {
+            "NEXT_TELEMETRY_DISABLED": "1"
+          }
+        },
+        {
+          "label": "eslint",
+          "needs": [
+            "node"
+          ],
+          "run": [
+            "npm",
+            "run",
+            "lint"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "demo-repository",
+      "name": "Git workshop demo",
+      "role": "Git/GitHub workshop: conflict-demo/hello.c is broken on purpose for students to fix",
+      "lang": "C",
+      "project": "Libraries and training",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "the exercise is intact (hello.c fails to compile as planted)",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "sh",
+            "-c",
+            "! cc -fsyntax-only conflict-demo/hello.c 2>/dev/null"
+          ]
+        },
+        {
+          "label": "the solved exercise passes code-format.yml and compile.yml",
+          "needs": [
+            "cc",
+            "clang-format"
+          ],
+          "run": [
+            "sh",
+            "../checks/demo-repository/solved.sh"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "GroundStation",
+      "name": "HAB ground station",
+      "role": "2024 high-altitude-balloon ground station GUI (PyQt5, Leaflet map, APRS via RTL-SDR)",
+      "lang": "Python",
+      "project": "High-altitude balloon",
+      "private": true,
+      "setup": [
+        {
+          "label": "resolve the pinned requirements (Python 3.12)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "python",
+            "-c",
+            "import PyQt5.QtWebEngineWidgets, pyqtgraph, aprspy"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "black --check",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "black",
+            "--check",
+            "."
+          ]
+        },
+        {
+          "label": "GUI imports and CLI help (headless)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with-requirements",
+            "requirements.txt",
+            "python",
+            "frontend.py",
+            "-h"
+          ],
+          "env": {
+            "QT_QPA_PLATFORM": "offscreen",
+            "PYTHONDONTWRITEBYTECODE": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "UVSD-DOOM-old",
+      "name": "UVSD DOOM (old)",
+      "role": "Earlier doomgeneric fork with a stub UVSD platform port for streaming DOOM to a ground station",
+      "lang": "C",
+      "project": "DOOM balloon",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "UVSD port compiles",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "cc",
+            "-fsyntax-only",
+            "-Wall",
+            "doomgeneric/doomgeneric_uvsd.c"
+          ]
+        },
+        {
+          "label": "documented X11 build (make -C doomgeneric; needs libx11)",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "make",
+            "-C",
+            "doomgeneric",
+            "-j{JOBS}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TEMP_PAY_EGSE",
+      "name": "PAY EGSE board",
+      "role": "Altium design of the MARMOTSat payload EGSE board (schematics, Gerbers, BOM, STEP)",
+      "lang": "Altium",
+      "project": "MARMOTSat",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "design and fabrication files are intact",
+          "run": [
+            "hardware"
+          ]
+        },
+        {
+          "label": "Gerber and drill files parse (gerbonara)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            "3.12",
+            "--with",
+            "gerbonara==1.5.0",
+            "python",
+            "-W",
+            "ignore",
+            "-c",
+            "import glob; from gerbonara import GerberFile, ExcellonFile; [print(f, len(GerberFile.open(f).objects), 'objects') for f in sorted(glob.glob('manufacturing/*.gbr'))]; print('drill hits', len(list(ExcellonFile.open('manufacturing/PAY_EGSE.TXT').drills())))"
+          ]
+        }
+      ]
     }
   ]
 }
