@@ -933,6 +933,15 @@ void ST_Ticker (void)
 
 static int st_palette = 0;
 
+#ifdef DG_PLAYPAL_INDEX
+// The PLAYPAL palette (0-13) in use, for platforms that send the 8-bit frame
+// buffer off-board with its palette number instead of converting to RGB.
+int ST_PlaypalIndex(void)
+{
+    return st_palette < 0 ? 0 : st_palette;
+}
+#endif
+
 void ST_doPaletteStuff(void)
 {
 

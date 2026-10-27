@@ -875,12 +875,13 @@ function loadWad() {
 }
 
 class DoomSim {
-  constructor(canvas, { onStatus = () => {}, onExit = () => {} } = {}) {
+  constructor(canvas, { onStatus = () => {}, onExit = () => {}, onFrame = () => {} } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.image = this.ctx.createImageData(320, 200);
     this.onStatus = onStatus;
     this.onExit = onExit;
+    this.onFrame = onFrame;           // (module, RGBA ImageData) after each drawn frame
     this.mod = null;
     this.running = false;
     this.frames = 0;
@@ -904,6 +905,7 @@ class DoomSim {
         this.image.data.set(mod.HEAPU8.subarray(ptr, ptr + 320 * 200 * 4));
         this.ctx.putImageData(this.image, 0, 0);
         this.frames++;
+        this.onFrame(mod, this.image);
       },
     });
     mod.FS.writeFile('/DOOM1.WAD', new Uint8Array(wad));
@@ -2357,7 +2359,11 @@ function editor() {
 
 function modeFor(path) {
   if (/\.s$/i.test(path)) return { name: 'gas', architecture: 'ARM' };
-  if (/Makefile|\.ld$/.test(path)) return 'text/plain';
+  if (/\.py$/.test(path)) return 'text/x-python';
+  if (/\.(grc|ya?ml)$/.test(path)) return 'text/x-yaml';
+  if (/\.sh$/.test(path)) return 'text/x-sh';
+  if (/CMakeLists\.txt$|\.cmake$/.test(path)) return 'text/x-cmake';
+  if (/Makefile|\.(ld|ioc|md|rst|toml)$/.test(path)) return 'text/plain';
   return 'text/x-csrc';
 }
 
@@ -3230,7 +3236,15 @@ async function restoreTarget() {
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
     : 'Static IDE ready: edit sources, build H743 or Nucleo-F401RE firmware in the browser, and flash over USB. Browser drafts stay on this device.', 'dim');
   onSelection();
+  openLinkedFile();
 })();
+
+// index.html#open=<path> opens a project file, e.g. from the balloon page.
+function openLinkedFile() {
+  const path = decodeURIComponent((location.hash.match(/^#open=(.+)$/) || [])[1] || '');
+  if (path && state.files.includes(path)) openFile(path);
+}
+window.addEventListener('hashchange', openLinkedFile);
 
 const brightnessInput = $('screen-brightness');
 const brightnessValue = $('screen-brightness-value');

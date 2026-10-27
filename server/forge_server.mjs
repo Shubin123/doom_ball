@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { uvsdSourceFiles } from '../tools/uvsd-files.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8732);
@@ -28,6 +29,7 @@ for (const base of ['firmware/projects', 'firmware/targets', 'firmware/third_par
   walk(base);
 }
 EDITABLE.push('firmware/Makefile');
+EDITABLE.push(...uvsdSourceFiles(ROOT));
 EDITABLE.sort();
 const editableSet = new Set(EDITABLE);
 let building = false;

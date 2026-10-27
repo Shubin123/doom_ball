@@ -1,0 +1,158 @@
+[submodule "uvsd/uvsd-doom-obc"]
+	path = uvsd/uvsd-doom-obc
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc.git
+[submodule "uvsd/uvsd-doom-gs"]
+	path = uvsd/uvsd-doom-gs
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-gs.git
+[submodule "uvsd/uvsd-pico-bridge"]
+	path = uvsd/uvsd-pico-bridge
+	url = https://github.com/UVicSatelliteDesign/uvsd-pico-bridge.git
+[submodule "uvsd/uvsd-doom-gnu-radio"]
+	path = uvsd/uvsd-doom-gnu-radio
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-gnu-radio.git
+[submodule "uvsd/uvsd-nrf-doom"]
+	path = uvsd/uvsd-nrf-doom
+	url = https://github.com/UVicSatelliteDesign/uvsd-nrf-doom.git
+[submodule "uvsd/uvsd-doom-obc-pcb-v2"]
+	path = uvsd/uvsd-doom-obc-pcb-v2
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc-pcb-v2.git
+[submodule "uvsd/uvsd-doom-obc-pcb"]
+	path = uvsd/uvsd-doom-obc-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-eps-pcb"]
+	path = uvsd/uvsd-doom-eps-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-eps-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-ttc-pcb"]
+	path = uvsd/uvsd-doom-ttc-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-ttc-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-nrf-pcb"]
+	path = uvsd/uvsd-doom-nrf-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-nrf-pcb.git
+	update = none
+[submodule "uvsd/UVSD-Star-tracker"]
+	path = uvsd/UVSD-Star-tracker
+	url = https://github.com/UVicSatelliteDesign/UVSD-Star-tracker.git
+	shallow = true
+[submodule "uvsd/demo-repository"]
+	path = uvsd/demo-repository
+	url = https://github.com/UVicSatelliteDesign/demo-repository.git
+	update = none
+	shallow = true
+[submodule "uvsd/AltiumLib"]
+	path = uvsd/AltiumLib
+	url = https://github.com/UVicSatelliteDesign/AltiumLib.git
+	update = none
+	shallow = true
+[submodule "uvsd/ADCS_Dev"]
+	path = uvsd/ADCS_Dev
+	url = https://github.com/UVicSatelliteDesign/ADCS_Dev.git
+	update = none
+	shallow = true
+[submodule "uvsd/COMP_SLIP-GS"]
+	path = uvsd/COMP_SLIP-GS
+	url = https://github.com/UVicSatelliteDesign/COMP_SLIP-GS.git
+	shallow = true
+[submodule "uvsd/COMP_SLIP-OBC"]
+	path = uvsd/COMP_SLIP-OBC
+	url = https://github.com/UVicSatelliteDesign/COMP_SLIP-OBC.git
+	shallow = true
+[submodule "uvsd/PCB_UVR-SLIP_TTC"]
+	path = uvsd/PCB_UVR-SLIP_TTC
+	url = https://github.com/UVicSatelliteDesign/PCB_UVR-SLIP_TTC.git
+	update = none
+	shallow = true
+[submodule "uvsd/COMP_SLIP_SDR"]
+	path = uvsd/COMP_SLIP_SDR
+	url = https://github.com/UVicSatelliteDesign/COMP_SLIP_SDR.git
+	shallow = true
+[submodule "uvsd/UVSD-DOOM-old"]
+	path = uvsd/UVSD-DOOM-old
+	url = https://github.com/UVicSatelliteDesign/UVSD-DOOM-old.git
+	update = none
+	shallow = true
+[submodule "uvsd/AltiumSkillDev"]
+	path = uvsd/AltiumSkillDev
+	url = https://github.com/UVicSatelliteDesign/AltiumSkillDev.git
+	shallow = true
+[submodule "uvsd/SolderingWorkshopAltium"]
+	path = uvsd/SolderingWorkshopAltium
+	url = https://github.com/UVicSatelliteDesign/SolderingWorkshopAltium.git
+	update = none
+	shallow = true
+[submodule "uvsd/TEMP_PAY_EGSE"]
+	path = uvsd/TEMP_PAY_EGSE
+	url = https://github.com/UVicSatelliteDesign/TEMP_PAY_EGSE.git
+	update = none
+	shallow = true
+[submodule "uvsd/UVSD-MECH"]
+	path = uvsd/UVSD-MECH
+	url = https://github.com/UVicSatelliteDesign/UVSD-MECH.git
+	shallow = true
+[submodule "uvsd/uvsd-website"]
+	path = uvsd/uvsd-website
+	url = https://github.com/UVicSatelliteDesign/uvsd-website.git
+	update = none
+	shallow = true
+[submodule "uvsd/UVSD_SDR"]
+	path = uvsd/UVSD_SDR
+	url = https://github.com/UVicSatelliteDesign/UVSD_SDR.git
+	shallow = true
+[submodule "uvsd/COMP_SLIP_TTC"]
+	path = uvsd/COMP_SLIP_TTC
+	url = https://github.com/UVicSatelliteDesign/COMP_SLIP_TTC.git
+	shallow = true
+[submodule "uvsd/PCB_SLIP_OBC"]
+	path = uvsd/PCB_SLIP_OBC
+	url = https://github.com/UVicSatelliteDesign/PCB_SLIP_OBC.git
+	update = none
+	shallow = true
+[submodule "uvsd/PCB_UVR-SLIP_BMS"]
+	path = uvsd/PCB_UVR-SLIP_BMS
+	url = https://github.com/UVicSatelliteDesign/PCB_UVR-SLIP_BMS.git
+	update = none
+	shallow = true
+[submodule "uvsd/PCB_UVR-SLIP_CC1201Dev"]
+	path = uvsd/PCB_UVR-SLIP_CC1201Dev
+	url = https://github.com/UVicSatelliteDesign/PCB_UVR-SLIP_CC1201Dev.git
+	shallow = true
+[submodule "uvsd/OBC_Proto"]
+	path = uvsd/OBC_Proto
+	url = https://github.com/UVicSatelliteDesign/OBC_Proto.git
+	update = none
+	shallow = true
+[submodule "uvsd/PCB_FlatSat_OBC"]
+	path = uvsd/PCB_FlatSat_OBC
+	url = https://github.com/UVicSatelliteDesign/PCB_FlatSat_OBC.git
+	update = none
+	shallow = true
+[submodule "uvsd/PCB_UVR-SLIP_Misc_Dev"]
+	path = uvsd/PCB_UVR-SLIP_Misc_Dev
+	url = https://github.com/UVicSatelliteDesign/PCB_UVR-SLIP_Misc_Dev.git
+	update = none
+	shallow = true
+[submodule "uvsd/HAB_OBC"]
+	path = uvsd/HAB_OBC
+	url = https://github.com/UVicSatelliteDesign/HAB_OBC.git
+	shallow = true
+[submodule "uvsd/GroundStation"]
+	path = uvsd/GroundStation
+	url = https://github.com/UVicSatelliteDesign/GroundStation.git
+	update = none
+	shallow = true
+[submodule "uvsd/i2c_LED_Matrix"]
+	path = uvsd/i2c_LED_Matrix
+	url = https://github.com/UVicSatelliteDesign/i2c_LED_Matrix.git
+	shallow = true
+[submodule "uvsd/satnogs"]
+	path = uvsd/satnogs
+	url = https://github.com/UVicSatelliteDesign/satnogs.git
+	update = none
+	shallow = true
+[submodule "uvsd/satnogs_relayCtrl"]
+	path = uvsd/satnogs_relayCtrl
+	url = https://github.com/UVicSatelliteDesign/satnogs_relayCtrl.git
+	update = none
+	shallow = true

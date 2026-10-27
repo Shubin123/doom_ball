@@ -71,6 +71,7 @@ button { cursor: pointer; }
   border: 1px solid var(--border-bright); background: var(--bg-surface); font-weight: 500; font-size: 12px;
 }
 .btn:hover:not(:disabled) { background: var(--bg-hover); }
+a.btn { color: var(--text); text-decoration: none; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-bright); }

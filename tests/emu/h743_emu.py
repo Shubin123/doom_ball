@@ -184,6 +184,10 @@ class SdCard:
     def write(self, off, value):
         self.regs[off] = value
         if off == 0x0C and value & (1 << 12):        # CMD with CPSMEN
+            # The CPSM clears CPSMEN once the command is sent, so the HAL's
+            # read-modify-write of CMDTRANS afterwards doesn't resend it
+            # (a resent CMD24/25 would drop the block being written).
+            self.regs[off] = value & ~(1 << 12)
             self.command(value & 0x3F, self.regs.get(0x08, 0))
         elif off == 0x38:                            # ICR
             self.sta &= ~value

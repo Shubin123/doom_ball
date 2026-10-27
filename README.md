@@ -74,6 +74,123 @@ prebuilt H743 DOOM and blinky images remain available for flashing directly.
 Flashing and the serial console use Web Serial and WebUSB, which need Chrome
 or Edge.
 
+## DOOM Balloon (UVic Satellite Design)
+
+`balloon.html` (the **Balloon link** button in the IDE) demonstrates the
+UVic Satellite Design DOOM balloon with the code from its repositories.
+
+All 37 UVicSatelliteDesign repositories are git submodules under `uvsd/`.
+Each one's project, role, setup and tests are in `uvsd/repos.json`:
+
+- DOOM balloon
+- SLIP CubeSat
+- high-altitude balloon
+- MARMOTSat
+- ADCS and star tracker
+- SatNOGS ground station
+- website
+- libraries and training
+- mechanical and SDR
+
+They are shallow clones. The 20 private repositories are `update = none`, so
+public clones skip them. The DOOM balloon ones the page runs:
+
+| Repository | What it is |
+| --- | --- |
+| `uvsd-doom-obc` | STM32H733 on-board computer firmware (FreeRTOS, telemetry, commands, SD) |
+| `uvsd-doom-gs` | PyQt6 ground station: DOOM display, palettes, keyboard uplink packets |
+| `uvsd-pico-bridge` | Pico 2 SPI-slave bridge and laptop USB receiver |
+| `uvsd-doom-gnu-radio` | GNU Radio flowgraph for the 915 MHz video link, recorded gameplay |
+| `uvsd-nrf-doom` | DOOM on the nRF5340 payload (both cores) |
+| `uvsd-doom-obc-pcb-v2` | OBC board (Altium) |
+| `uvsd-doom-obc-pcb`, `-eps-pcb`, `-ttc-pcb`, `-nrf-pcb` | OBC, power, TT&C radio and nRF boards (Altium, private: `update = none`) |
+
+**Play DOOM over the link.** The payload runs this repository's DOOM engine.
+Each frame goes down one of two paths:
+
+- *RF test link*: the `DOOMflow.grc` 4-FSK physical layer, sample for sample:
+  915 MHz, 2.5 Msps, 625 ksym/s, ±125 kHz. Frames are `AA BB CC DD` plus
+  packed pixels, as in the repository's generators. The receiver is the
+  flowgraph's demodulator followed by `view_doom_zmq.py`'s slicer and sync
+  search. Noise and carrier offset are adjustable. Grey frames arrive at
+  about 19.5 fps.
+- *Payload packets*: the nRF5340's `n_frame_uart.c` format (SYNC, TYPE,
+  32-bit LENGTH, PLAYPAL, RLE, CRC-16/CCITT-FALSE) over its 115200-baud UART.
+  The ground station parses it like `serial_rx.py` and colours it with
+  `assets/palettes.hex`. Full-colour frames arrive about every 4 s.
+
+Click the ground screen to play. Keys are sampled at 30 Hz, built into
+`messages.py` keyboard packets (`0x02` batches and a `0x04` EOF), and replayed
+into the payload's DOOM. The step from the OBC to the payload is modelled;
+the repositories stub it so far.
+
+The recorded gameplay in `uvsd-doom-gnu-radio` can be replayed through the
+same link instead of the live game.
+
+**The rest of the page:**
+- The system diagram uses the Altium schematics; dashed links are not wired
+  in the designs yet.
+- The balloon's TT&C transmit and receive chains (CC1201, PE4259 switches,
+  GRF5511 PA, TQP3M9036 LNA) light up with the link direction.
+- The ground receive chain is read from `DOOMflow.grc`.
+- The bench paths (UART, Pico) are shown alongside.
+- The OBC's FreeRTOS tasks, telemetry channels and pins are read from its
+  sources, next to a flight model of the draft burnwire rule.
+- Every repository is listed with its pinned commit.
+
+`index.html#open=<path>` opens any file in the IDE. The public repositories'
+sources appear in the file tree with Python, YAML, shell and CMake
+highlighting.
+
+```sh
+git submodule update --init           # public repositories; LFS recordings need git-lfs
+node tools/uvsd.mjs setup             # private ones if you have access, Pico SDK, nRF5 SDK, uv envs
+node tools/uvsd.mjs test              # each repository's own build and tests
+```
+
+`tools/uvsd.mjs test` runs each repository's own CI where it has one, and
+otherwise its documented build:
+
+- DOOM balloon:
+  - `uvsd-doom-obc`: unit tests, cppcheck, and the STM32H733 build.
+  - `uvsd-doom-gs`: ruff, mypy and pytest.
+  - `uvsd-pico-bridge`: the receiver test and the RP2350 build.
+  - `uvsd-doom-gnu-radio`: the viewer replay test.
+  - `uvsd-nrf-doom`: both nRF5340 core builds.
+- SLIP:
+  - `COMP_SLIP-OBC`: the STM32H743 firmware compiles.
+  - `COMP_SLIP_TTC`: the firmware builds and links.
+  - `COMP_SLIP-GS`: CI's pytest suite.
+  - `COMP_SLIP_SDR`: the scripts and output parser.
+- `HAB_OBC`: the firmware builds and links.
+- Arduino sketches, compiled with arduino-cli:
+  - ADCS motor drive (ItsyBitsy M4);
+  - LED matrix (Uno);
+  - SatNOGS relay controller (ATmega1284P).
+- The star tracker builds and renders a star field, and its centroid
+  pipeline is tested.
+- The SatNOGS scripts are linted and dry-run.
+- The website runs `next build` and eslint.
+- `GroundStation` (2024) installs and starts headless.
+- `UVSD-DOOM-old` builds.
+- `demo-repository` (a Git workshop whose `hello.c` is broken on purpose):
+  checks the exercise is intact and that its solution, in
+  `uvsd/checks/demo-repository/`, passes the repository's own workflows.
+- Board, library and EGSE repositories: the `hardware` check:
+  - Altium documents and BOMs;
+  - every Gerber's end marker and Altium MD5;
+  - zip archives, STEP headers and KiCad files.
+
+Missing tools (uv, Arm GCC, cmake, Node, arduino-cli, shellcheck,
+clang-format) make a step SKIP, not FAIL. SDKs and the STM32Cube cache go to
+`uvsd/.deps/` (gitignored).
+
+After changing `ide/balloon/` or moving a submodule, run
+`node tools/bundle_ide.mjs`. It rebuilds `ide/balloon.js` and
+`ide/uvsd-sources.js`, a snapshot of the sources the page reads, so it also
+works from `file://`. `tools/publish_static.mjs` publishes only the public
+repositories' sources and the data the page needs.
+
 ## What is real
 
 - **DOOM**: id Software's engine (the [doomgeneric](https://github.com/ozkl/doomgeneric)
@@ -253,12 +370,24 @@ tests/run_all.sh
   boundaries (`FORGE_HW_REPEAT`, default 12) and reads each back.
 - **DOOM wasm, headless** (`tests/sim_headless.mjs`): demo playback with
   zone integrity checks, including the exact H743 bank layout.
+- **DOOM Balloon** (`tests/balloon.test.mjs`):
+  - The keyboard packets are byte-identical to `uvsd-doom-gs` `messages.py`.
+  - Frame packets of a real DOOM frame decode with its `serial_rx.py`.
+  - The JS modulator reproduces `doom_gameplay.cfile` to float precision, and
+    its receiver decodes all 120 frames in it.
+  - Both gameplay recordings get through a noisy channel.
+  - The OBC and flowgraph readers match the sources.
+  - In headless Chrome, the page plays over both paths and the uplink reaches
+    the payload.
+- **UVSD repositories** (`node tools/uvsd.mjs test`): each submodule's own CI
+  checks and builds, as listed above.
 - **H743 firmware emulator** (`tests/emu/h743_emu.py`): runs the real
   `firmware.elf` on a Cortex-M7 emulator (Unicorn) with RCC, PWR, GPIO,
   USART1, SPI1 and SDMMC1 modelled. The SD card image holds `DOOM1.WAD`, and
   the ILI9341 SPI stream is decoded into PNG frames. The firmware boots,
   mounts FAT, loads the WAD, and starts and plays E1M1 through its UART key
-  protocol. This optional emulator test uses Python tooling; it is not needed
+  protocol. This optional emulator test uses Python tooling (`tests/emu/requirements.txt`)
+  and builds its SD card image with `mkfs.fat` and `mcopy` (dosfstools, mtools); it is not needed
   by the online demo, local IDE server, firmware, or flashing path.
 
 ![Frames decoded from the H743 firmware's SPI output in the emulator](docs/h743-firmware-emulated.png)
@@ -285,6 +414,9 @@ firmware/targets/f401/      Nucleo-F401RE board, syscalls, linker script
 firmware/projects/blinky/   blinky for both boards
 firmware/third_party/       CMSIS, STM32H7 HAL subset, FatFs
 firmware/prebuilt/          built images + manifest
+balloon.html, ide/balloon/  DOOM Balloon page: wire formats, 4-FSK modem, flowgraph and OBC readers
+uvsd/                       UVic Satellite Design repositories (git submodules), repos.json manifest
+tools/uvsd.mjs              set up and test the uvsd/ repositories
 tests/                      regression suite
 ```
 

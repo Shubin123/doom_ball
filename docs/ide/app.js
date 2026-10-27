@@ -350,7 +350,11 @@ function editor() {
 
 function modeFor(path) {
   if (/\.s$/i.test(path)) return { name: 'gas', architecture: 'ARM' };
-  if (/Makefile|\.ld$/.test(path)) return 'text/plain';
+  if (/\.py$/.test(path)) return 'text/x-python';
+  if (/\.(grc|ya?ml)$/.test(path)) return 'text/x-yaml';
+  if (/\.sh$/.test(path)) return 'text/x-sh';
+  if (/CMakeLists\.txt$|\.cmake$/.test(path)) return 'text/x-cmake';
+  if (/Makefile|\.(ld|ioc|md|rst|toml)$/.test(path)) return 'text/plain';
   return 'text/x-csrc';
 }
 
@@ -1223,7 +1227,15 @@ async function restoreTarget() {
     ? 'Ready. Build runs arm-none-eabi-gcc on this machine (Ctrl+B).'
     : 'Static IDE ready: edit sources, build H743 or Nucleo-F401RE firmware in the browser, and flash over USB. Browser drafts stay on this device.', 'dim');
   onSelection();
+  openLinkedFile();
 })();
+
+// index.html#open=<path> opens a project file, e.g. from the balloon page.
+function openLinkedFile() {
+  const path = decodeURIComponent((location.hash.match(/^#open=(.+)$/) || [])[1] || '');
+  if (path && state.files.includes(path)) openFile(path);
+}
+window.addEventListener('hashchange', openLinkedFile);
 
 const brightnessInput = $('screen-brightness');
 const brightnessValue = $('screen-brightness-value');

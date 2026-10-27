@@ -18,7 +18,10 @@ export const chrome = process.env.CHROME || ['/usr/bin/google-chrome-stable','/u
 // `bindings` maps window function names to Node handlers: the page calls
 // name(string) and handler(string, evaluate) runs here. `site: 'docs'` serves
 // the published GitHub Pages tree, which also carries the browser compiler.
-export async function withStaticIde(run, { before = null, bindings = {}, site = null } = {}) {
+// `page` opens another page of the site and `ready` is the page expression
+// that says it has finished starting.
+const IDE_READY = `document.readyState === 'complete' && document.querySelector('#project')?.options.length > 0 && /ready/i.test(document.querySelector('#term-build')?.textContent || '')`;
+export async function withStaticIde(run, { before = null, bindings = {}, site = null, page: pagePath = '', ready = IDE_READY } = {}) {
   const served = site ? path.join(root, site) : root;
   const profile = mkdtempSync(path.join(tmpdir(), 'forge-static-chrome-'));
   const server = createServer((req, res) => {
@@ -28,7 +31,7 @@ export async function withStaticIde(run, { before = null, bindings = {}, site = 
     const base = pathname.startsWith('/tests/') ? root : served;
     const filename = path.resolve(base, `.${pathname}`);
     if (!filename.startsWith(base + path.sep)) { res.writeHead(403).end(); return; }
-    const types = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.wad':'application/octet-stream' };
+    const types = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.wad':'application/octet-stream', '.svg':'image/svg+xml', '.woff2':'font/woff2' };
     res.setHeader('Content-Type', types[path.extname(filename)] || 'application/octet-stream');
     const stream = createReadStream(filename);
     stream.on('error', () => { res.writeHead(404).end(); });
@@ -87,8 +90,10 @@ export async function withStaticIde(run, { before = null, bindings = {}, site = 
       const { result: { nodeId } } = await send('DOM.querySelector', { nodeId: doc.nodeId, selector });
       await send('DOM.setFileInputFiles', { nodeId, files });
     };
-    await send('Page.navigate', { url:`http://127.0.0.1:${port}/` });
-    await waitFor(`document.readyState === 'complete' && document.querySelector('#project')?.options.length > 0`);
+    await send('Page.navigate', { url:`http://127.0.0.1:${port}/${pagePath}` });
+    // Start after the IDE's start-up has finished: its last step re-applies the
+    // selected example, which would otherwise restart a preview mid-test.
+    await waitFor(ready, 30000);
     await run({ send, evaluate, waitFor, errors, requests, setFiles, port });
   } finally {
     ws?.close(); proc.kill('SIGKILL'); server.close();

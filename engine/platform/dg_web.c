@@ -49,6 +49,19 @@ EMSCRIPTEN_KEEPALIVE uint32_t *dg_frame_ptr(void)
     return rgba;
 }
 
+/* The 8-bit palette-indexed frame and its PLAYPAL number: what the nRF5340
+ * payload sends to the ground (uvsd-nrf-doom n_frame_uart.c). */
+EMSCRIPTEN_KEEPALIVE byte *dg_index_ptr(void)
+{
+    return I_VideoBuffer;
+}
+
+EMSCRIPTEN_KEEPALIVE int dg_playpal_index(void)
+{
+    extern int ST_PlaypalIndex(void);
+    return ST_PlaypalIndex();
+}
+
 byte *DG_ZoneBase(int *size)
 {
     zone_mem = malloc(zone_bytes);
