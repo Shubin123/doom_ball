@@ -1,0 +1,34 @@
+[submodule "uvsd/uvsd-doom-obc"]
+	path = uvsd/uvsd-doom-obc
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc.git
+[submodule "uvsd/uvsd-doom-gs"]
+	path = uvsd/uvsd-doom-gs
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-gs.git
+[submodule "uvsd/uvsd-pico-bridge"]
+	path = uvsd/uvsd-pico-bridge
+	url = https://github.com/UVicSatelliteDesign/uvsd-pico-bridge.git
+[submodule "uvsd/uvsd-doom-gnu-radio"]
+	path = uvsd/uvsd-doom-gnu-radio
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-gnu-radio.git
+[submodule "uvsd/uvsd-nrf-doom"]
+	path = uvsd/uvsd-nrf-doom
+	url = https://github.com/UVicSatelliteDesign/uvsd-nrf-doom.git
+[submodule "uvsd/uvsd-doom-obc-pcb-v2"]
+	path = uvsd/uvsd-doom-obc-pcb-v2
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc-pcb-v2.git
+[submodule "uvsd/uvsd-doom-obc-pcb"]
+	path = uvsd/uvsd-doom-obc-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-obc-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-eps-pcb"]
+	path = uvsd/uvsd-doom-eps-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-eps-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-ttc-pcb"]
+	path = uvsd/uvsd-doom-ttc-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-ttc-pcb.git
+	update = none
+[submodule "uvsd/uvsd-doom-nrf-pcb"]
+	path = uvsd/uvsd-doom-nrf-pcb
+	url = https://github.com/UVicSatelliteDesign/uvsd-doom-nrf-pcb.git
+	update = none

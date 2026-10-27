@@ -1,0 +1,879 @@
+options:
+  parameters:
+    author: Miles Hiebert
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: DOOMflow
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: DOOMflow
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: center_freq
+  id: variable
+  parameters:
+    comment: ''
+    value: 915e6
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [488, 12.0]
+    rotation: 0
+    state: enabled
+- name: fsk_deviation_hz
+  id: variable
+  parameters:
+    comment: ''
+    value: 125e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 12.0]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: 2.5e6
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [184, 12.0]
+    rotation: 0
+    state: enabled
+- name: sps
+  id: variable
+  parameters:
+    comment: ''
+    value: '4'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [288, 12.0]
+    rotation: 0
+    state: enabled
+- name: sym_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: 625e3
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [592, 12.0]
+    rotation: 0
+    state: enabled
+- name: analog_quadrature_demod_cf_0
+  id: analog_quadrature_demod_cf
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    gain: samp_rate/(2*math.pi*fsk_deviation_hz)
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [856, 412.0]
+    rotation: 0
+    state: enabled
+- name: blocks_file_source_0
+  id: blocks_file_source
+  parameters:
+    affinity: ''
+    alias: ''
+    begin_tag: pmt.PMT_NIL
+    comment: ''
+    file: doom_gameplay.cfile
+    length: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: '0'
+    repeat: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [264, 452.0]
+    rotation: 0
+    state: disabled
+- name: blocks_throttle2_0
+  id: blocks_throttle2
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    ignoretag: 'True'
+    limit: auto
+    maximum: '0.1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samples_per_second: samp_rate
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [512, 476.0]
+    rotation: 0
+    state: disabled
+- name: digital_symbol_sync_xx_0
+  id: digital_symbol_sync_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    constellation: digital.constellation_bpsk().base()
+    damping: '1.0'
+    loop_bw: '0.03'
+    max_dev: '1.5'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nfilters: '128'
+    osps: '1'
+    pfb_mf_taps: '[]'
+    resamp_type: digital.IR_MMSE_8TAP
+    sps: sps
+    ted_gain: '1.0'
+    ted_type: digital.TED_GARDNER
+    type: ff
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1432, 196.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_0
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\nimport cv2\n\nclass\
+      \ doom_4gfsk_decoder(gr.basic_block):\n    def __init__(self, width=320, height=200,\
+      \ sync_header=b'\\xDE\\xAD\\xBE\\xEF'):\n        gr.basic_block.__init__(self,\n\
+      \            name=\"DOOM 4-GFSK Frame Decoder & Renderer\",\n            in_sig=[np.float32],\
+      \ # Synchronized symbols from Symbol Sync\n            out_sig=None)\n\n   \
+      \     self.WIDTH = width\n        self.HEIGHT = height\n        self.FRAME_BYTES\
+      \ = self.WIDTH * self.HEIGHT\n        self.SYNC_HEADER = sync_header\n     \
+      \   self.buffer = bytearray()\n        \n        # 4-Level Slicing Thresholds\n\
+      \        self.T1 = -0.66\n        self.T2 = 0.0\n        self.T3 = 0.66\n  \
+      \      \n        # Fast lookup table mapping the 4 levels to 2-bit pairs\n \
+      \       self.bit_table = np.array([\n            [0, 0],  # Level 0 (< T1)\n\
+      \            [0, 1],  # Level 1 (T1 to T2)\n            [1, 0],  # Level 2 (T2\
+      \ to T3)\n            [1, 1]   # Level 3 (>= T3)\n        ], dtype=np.uint8)\n\
+      \n    def general_work(self, input_items, output_items):\n        in_symbols\
+      \ = input_items[0]\n        symbols_consumed = len(in_symbols)\n\n        if\
+      \ symbols_consumed == 0:\n            return 0\n\n        # 1. Blazing fast\
+      \ vectorized slicing using NumPy (C-speed execution)\n        bins = np.digitize(in_symbols,\
+      \ [self.T1, self.T2, self.T3])\n        raw_bits = self.bit_table[bins].flatten()\n\
+      \n        # 2. Pack bits into bytes and add to working buffer\n        bit_array\
+      \ = np.packbits(raw_bits)\n        self.buffer.extend(bit_array.tobytes())\n\
+      \n        # 3. Frame Synchronization via Magic Header\n        header_idx =\
+      \ self.buffer.find(self.SYNC_HEADER)\n        if header_idx != -1:\n       \
+      \     del self.buffer[:header_idx + len(self.SYNC_HEADER)]\n\n        # 4. Extract\
+      \ and Render Full Frames smoothly\n        while len(self.buffer) >= self.FRAME_BYTES:\n\
+      \            frame_raw = self.buffer[:self.FRAME_BYTES]\n            del self.buffer[:self.FRAME_BYTES]\n\
+      \n            # Reconstruct pixel array\n            img = np.frombuffer(frame_raw,\
+      \ dtype=np.uint8).reshape((self.HEIGHT, self.WIDTH))\n\n            # Upscale\
+      \ and display live window smoothly\n            display_frame = cv2.resize(img,\
+      \ (self.WIDTH * 3, self.HEIGHT * 3), interpolation=cv2.INTER_NEAREST)\n    \
+      \        cv2.imshow(\"DOOM 4-GFSK Live Feed\", display_frame)\n            cv2.waitKey(1)\n\
+      \n        self.consume(0, symbols_consumed)\n        return symbols_consumed"
+    affinity: ''
+    alias: ''
+    comment: ''
+    height: '240'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sync_header: b'\xDE\xAD\xBE\xEF'
+    width: '320'
+  states:
+    _io_cache: ('DOOM 4-GFSK Frame Decoder & Renderer', 'doom_4gfsk_decoder', [('width',
+      '320'), ('height', '200'), ('sync_header', "b'\\xde\\xad\\xbe\\xef'")], [('0',
+      'float', 1)], [], '', [])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1768, 332.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_2
+  id: epy_block
+  parameters:
+    _source_code: "\"\"\"\nRaw byte stream -> 4-GFSK modulator, as a GNU Radio Embedded\
+      \ Python Block (source, no inputs).\n\nPaste this whole file into a GRC \"Python\
+      \ Block\" and wire its complex output into your existing\nchain (Complex Low\
+      \ Pass Filter, decimation 1, ...). Remove the File Source / RTL-SDR Source.\n\
+      The block paces itself in real time, so a Throttle is not needed (an extra one\
+      \ is harmless).\n\nWhat it does\n    Bytes arriving on the link are modulated\
+      \ exactly as received: 2 bits per symbol, MSB\n    first, 00 -> -1, 01 -> -1/3,\
+      \ 10 -> +1/3, 11 -> +1 (times `deviation`), rectangular pulses.\n    No commands,\
+      \ no framing, no header added. The SENDER puts the frame sync word\n    (AA\
+      \ BB CC DD) in front of every frame, exactly as in the original design.\n  \
+      \  When no data is waiting the block sends an unmodulated carrier, so the stream\
+      \ never stops.\n\nLink (port parameter; GRC passes it as typed, so 5558, \"\
+      5558\" and \"tcp:5558\" all mean TCP)\n    \"tcp:5558\"             listen on\
+      \ 127.0.0.1:5558; a sender connects (doom_raw_sender.py)\n    \"COM7\" / \"\
+      /dev/ttyACM0\" open that USB-serial port (a Pico running pico_raw_usb.py)\n\
+      \    The block stops reading when its buffer is full (max_buffer bytes, 0 =\
+      \ default 65536), so the sender is\n    slowed to the real symbol rate by normal\
+      \ flow control (TCP window / USB).\n\nsamp_rate / symbol_rate must be an integer.\
+      \ Single-threaded: the link is polled from work().\n\"\"\"\nimport select\n\
+      import socket\nimport time\n\nimport numpy as np\nfrom gnuradio import gr\n\n\
+      LEAD = 1024            # samples the engine may run ahead of the wall clock\n\
+      MIN_PRODUCE = 512\nMAX_PRODUCE = 1024\nUNIT_BYTES = 64        # bytes modulated\
+      \ per refill (64 bytes = 256 symbols = 1024 samples at 4 sps)\nIDLE_SYMS = 64\n\
+      \n\nclass blk(gr.sync_block):\n    def __init__(self, port=\"tcp:5558\", samp_rate=2500000.0,\
+      \ symbol_rate=625000.0,\n                 deviation=125000.0, gray=False, max_buffer=65536,\
+      \ realtime=False):\n        gr.sync_block.__init__(self, name=\"Raw 4-GFSK Mod\"\
+      , in_sig=None,\n                               out_sig=[np.complex64])\n   \
+      \     sps = float(samp_rate) / float(symbol_rate)\n        if abs(sps - round(sps))\
+      \ > 1e-9 or round(sps) < 1:\n            raise ValueError(\"samp_rate / symbol_rate\
+      \ must be an integer, got %r\" % sps)\n        self.sps = int(round(sps))\n\
+      \        self.fs = float(samp_rate)\n        self.dev = float(deviation)\n \
+      \       # GRC passes parameters exactly as typed, so accept 5558, \"5558\" and\
+      \ \"tcp:5558\" as the\n        # TCP port, and anything else (\"COM7\", \"/dev/ttyACM0\"\
+      ) as a serial port.\n        p = str(port).strip().strip(\"'\\\"\")\n      \
+      \  if p.lower().startswith(\"tcp:\"):\n            p = p[4:]\n        self._tcp_port\
+      \ = int(p) if p.isdigit() else None\n        self.port = p\n        mb = int(max_buffer)\
+      \ if str(max_buffer).strip() else 0\n        self.max_buffer = mb if mb > 0\
+      \ else 65536        # 0 / blank = default\n        self.realtime = str(realtime).strip().lower()\
+      \ in (\"1\", \"true\", \"yes\")\n\n        lv = np.array([-1.0, -1.0 / 3.0,\
+      \ 1.0 / 3.0, 1.0])\n        sym_to_level = np.array([0, 1, 3, 2]) if gray else\
+      \ np.array([0, 1, 2, 3])\n        self.sym_freq = lv[sym_to_level]\n       \
+      \ self._idle = np.zeros(IDLE_SYMS)\n\n        self.buf = bytearray()\n     \
+      \   self.iq = np.zeros(0, dtype=np.complex64)\n        self.phase = 0.0\n  \
+      \      self.t0 = None\n        self.emitted = 0\n        self.bytes_in = 0\n\
+      \        self.bytes_mod = 0\n        self.idle_syms = 0\n\n        self._conn\
+      \ = None\n        self._srv = None\n        self._ser = None\n        if self._tcp_port\
+      \ is not None:\n            self._srv = socket.socket()\n            self._srv.setsockopt(socket.SOL_SOCKET,\
+      \ socket.SO_REUSEADDR, 1)\n            self._srv.bind((\"127.0.0.1\", self._tcp_port))\n\
+      \            self._srv.listen(1)\n        else:\n            import serial\n\
+      \            self._ser = serial.Serial(self.port, 115200, timeout=0)   # baud\
+      \ ignored by USB CDC\n            self._ser.reset_input_buffer()\n\n    # ----------------\
+      \ link ----------------\n    def _poll_link(self, timeout):\n        \"\"\"\
+      Read whatever has arrived (never blocks longer than `timeout` seconds).\"\"\"\
+      \n        room = self.max_buffer - len(self.buf)\n        if self._ser is not\
+      \ None:\n            deadline = time.perf_counter() + max(0.0, timeout)\n  \
+      \          while True:\n                room = self.max_buffer - len(self.buf)\n\
+      \                try:\n                    n = self._ser.in_waiting if room\
+      \ > 0 else 0\n                    if n:\n                        d = self._ser.read(min(n,\
+      \ room))\n                        self.buf += d\n                        self.bytes_in\
+      \ += len(d)\n                except Exception as e:\n                    print(\"\
+      [Raw 4-GFSK Mod] serial error:\", e)\n                    return\n         \
+      \       if time.perf_counter() >= deadline:\n                    return\n  \
+      \              time.sleep(0.0002)\n        socks = [self._srv] + ([self._conn]\
+      \ if self._conn is not None and room > 0 else [])\n        try:\n          \
+      \  ready, _, _ = select.select(socks, [], [], max(0.0, timeout))\n        except\
+      \ (OSError, ValueError):\n            return\n        for sk in ready:\n   \
+      \         if sk is self._srv:\n                c, _ = sk.accept()\n        \
+      \        if self._conn is not None:\n                    self._conn.close()\n\
+      \                self._conn = c\n                self.buf.clear()\n        \
+      \        continue\n            try:\n                d = sk.recv(min(65536,\
+      \ room))\n            except OSError:\n                d = b\"\"\n         \
+      \   if not d:\n                sk.close()\n                self._conn = None\n\
+      \                continue\n            self.buf += d\n            self.bytes_in\
+      \ += len(d)\n\n    # ---------------- modulator ----------------\n    def _next_levels(self):\n\
+      \        if self.buf:\n            data = bytes(self.buf[:UNIT_BYTES])\n   \
+      \         del self.buf[:UNIT_BYTES]\n            self.bytes_mod += len(data)\n\
+      \            bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))\n   \
+      \         sym = (bits[0::2].astype(np.int64) << 1) | bits[1::2]\n          \
+      \  return self.sym_freq[sym]\n        self.idle_syms += IDLE_SYMS\n        return\
+      \ self._idle                       # unmodulated carrier while no data waits\n\
+      \n    def _refill(self, target):\n        while self.iq.size < target:\n   \
+      \         freq = np.repeat(self._next_levels(), self.sps) * self.dev\n     \
+      \       phase = self.phase + 2.0 * np.pi * np.cumsum(freq) / self.fs\n     \
+      \       self.phase = float(phase[-1] % (2.0 * np.pi))\n            iq = np.exp(1j\
+      \ * np.mod(phase, 2.0 * np.pi)).astype(np.complex64)\n            self.iq =\
+      \ np.concatenate((self.iq, iq))\n\n    def work(self, input_items, output_items):\n\
+      \        out = output_items[0]\n        n = len(out)\n        if not self.realtime:\
+      \                       # free-running: the Throttle sets the rate\n       \
+      \     self._poll_link(0.0)\n            k = min(n, 8192)\n            self._refill(k)\n\
+      \            out[:k] = self.iq[:k]\n            self.iq = self.iq[k:]\n    \
+      \        self.emitted += k\n            return k\n        if self.t0 is None:\n\
+      \            self.t0 = time.perf_counter() - LEAD / self.fs\n        while True:\n\
+      \            self._poll_link(0.0)\n            now = time.perf_counter()\n \
+      \           allowed = int((now - self.t0) * self.fs) + LEAD - self.emitted\n\
+      \            if allowed > LEAD + 4 * MAX_PRODUCE:          # fell behind: drop\
+      \ the lag\n                self.t0 = now - self.emitted / self.fs\n        \
+      \        allowed = LEAD\n            if allowed >= MIN_PRODUCE:\n          \
+      \      break\n            self._poll_link((MIN_PRODUCE - allowed) / self.fs)\
+      \   # real-time wait that also reads the link\n        k = max(1, min(n, MAX_PRODUCE,\
+      \ allowed))\n        self._refill(k)\n        out[:k] = self.iq[:k]\n      \
+      \  self.iq = self.iq[k:]\n        self.emitted += k\n        return k\n\n  \
+      \  def stop(self):\n        for sk in (self._conn, self._srv, self._ser):\n\
+      \            try:\n                if sk is not None:\n                    sk.close()\n\
+      \            except Exception:\n                pass\n        print(\"[Raw 4-GFSK\
+      \ Mod] bytes in %d, modulated %d, idle %.2f s\"\n              % (self.bytes_in,\
+      \ self.bytes_mod, self.idle_syms / (self.fs / self.sps)))\n        return True"
+    affinity: ''
+    alias: ''
+    comment: ''
+    deviation: fsk_deviation_hz
+    gray: 'False'
+    max_buffer: '65536'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    port: '5558'
+    realtime: 'False'
+    samp_rate: samp_rate
+    symbol_rate: sym_rate
+  states:
+    _io_cache: ('Raw 4-GFSK Mod', 'blk', [('port', "'tcp:5558'"), ('samp_rate', '2500000.0'),
+      ('symbol_rate', '625000.0'), ('deviation', '125000.0'), ('gray', 'False'), ('max_buffer',
+      '65536'), ('realtime', 'False')], [], [('0', 'complex', 1)], '', ['max_buffer',
+      'port', 'realtime'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [80, 428.0]
+    rotation: 0
+    state: disabled
+- name: freq_xlating_fir_filter_xxx_0
+  id: freq_xlating_fir_filter_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    center_freq: center_freq
+    comment: ''
+    decim: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    taps: ''
+    type: ccc
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [408, 260.0]
+    rotation: 0
+    state: enabled
+- name: low_pass_filter_0
+  id: low_pass_filter
+  parameters:
+    affinity: ''
+    alias: ''
+    beta: '6.76'
+    comment: ''
+    cutoff_freq: 400e3
+    decim: '1'
+    gain: '1'
+    interp: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    type: fir_filter_ccf
+    width: '50000'
+    win: window.WIN_HAMMING
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [664, 244.0]
+    rotation: 0
+    state: enabled
+- name: low_pass_filter_0_0
+  id: low_pass_filter
+  parameters:
+    affinity: ''
+    alias: ''
+    beta: '6.76'
+    comment: ''
+    cutoff_freq: 400e3
+    decim: '1'
+    gain: '1'
+    interp: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    type: fir_filter_fff
+    width: 50e3
+    win: window.WIN_HAMMING
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1048, 372.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_sink_x_0
+  id: qtgui_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    bw: samp_rate
+    comment: ''
+    fc: '0'
+    fftsize: '1024'
+    gui_hint: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: '""'
+    plotconst: 'True'
+    plotfreq: 'True'
+    plottime: 'True'
+    plotwaterfall: 'True'
+    rate: '10'
+    showports: 'False'
+    showrf: 'False'
+    type: complex
+    wintype: window.WIN_BLACKMAN_hARRIS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [888, 252.0]
+    rotation: 0
+    state: enabled
+- name: rational_resampler_xxx_0
+  id: rational_resampler_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    decim: '1'
+    fbw: '0'
+    interp: '1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    taps: '[]'
+    type: fff
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1232, 388.0]
+    rotation: 0
+    state: enabled
+- name: rtlsdr_source_0
+  id: rtlsdr_source
+  parameters:
+    affinity: ''
+    alias: ''
+    ant0: ''
+    ant1: ''
+    ant10: ''
+    ant11: ''
+    ant12: ''
+    ant13: ''
+    ant14: ''
+    ant15: ''
+    ant16: ''
+    ant17: ''
+    ant18: ''
+    ant19: ''
+    ant2: ''
+    ant20: ''
+    ant21: ''
+    ant22: ''
+    ant23: ''
+    ant24: ''
+    ant25: ''
+    ant26: ''
+    ant27: ''
+    ant28: ''
+    ant29: ''
+    ant3: ''
+    ant30: ''
+    ant31: ''
+    ant4: ''
+    ant5: ''
+    ant6: ''
+    ant7: ''
+    ant8: ''
+    ant9: ''
+    args: '""'
+    bb_gain0: '20'
+    bb_gain1: '20'
+    bb_gain10: '20'
+    bb_gain11: '20'
+    bb_gain12: '20'
+    bb_gain13: '20'
+    bb_gain14: '20'
+    bb_gain15: '20'
+    bb_gain16: '20'
+    bb_gain17: '20'
+    bb_gain18: '20'
+    bb_gain19: '20'
+    bb_gain2: '20'
+    bb_gain20: '20'
+    bb_gain21: '20'
+    bb_gain22: '20'
+    bb_gain23: '20'
+    bb_gain24: '20'
+    bb_gain25: '20'
+    bb_gain26: '20'
+    bb_gain27: '20'
+    bb_gain28: '20'
+    bb_gain29: '20'
+    bb_gain3: '20'
+    bb_gain30: '20'
+    bb_gain31: '20'
+    bb_gain4: '20'
+    bb_gain5: '20'
+    bb_gain6: '20'
+    bb_gain7: '20'
+    bb_gain8: '20'
+    bb_gain9: '20'
+    bw0: 2.5*fsk_deviation_hz
+    bw1: '0'
+    bw10: '0'
+    bw11: '0'
+    bw12: '0'
+    bw13: '0'
+    bw14: '0'
+    bw15: '0'
+    bw16: '0'
+    bw17: '0'
+    bw18: '0'
+    bw19: '0'
+    bw2: '0'
+    bw20: '0'
+    bw21: '0'
+    bw22: '0'
+    bw23: '0'
+    bw24: '0'
+    bw25: '0'
+    bw26: '0'
+    bw27: '0'
+    bw28: '0'
+    bw29: '0'
+    bw3: '0'
+    bw30: '0'
+    bw31: '0'
+    bw4: '0'
+    bw5: '0'
+    bw6: '0'
+    bw7: '0'
+    bw8: '0'
+    bw9: '0'
+    clock_source0: ''
+    clock_source1: ''
+    clock_source2: ''
+    clock_source3: ''
+    clock_source4: ''
+    clock_source5: ''
+    clock_source6: ''
+    clock_source7: ''
+    comment: ''
+    corr0: '0'
+    corr1: '0'
+    corr10: '0'
+    corr11: '0'
+    corr12: '0'
+    corr13: '0'
+    corr14: '0'
+    corr15: '0'
+    corr16: '0'
+    corr17: '0'
+    corr18: '0'
+    corr19: '0'
+    corr2: '0'
+    corr20: '0'
+    corr21: '0'
+    corr22: '0'
+    corr23: '0'
+    corr24: '0'
+    corr25: '0'
+    corr26: '0'
+    corr27: '0'
+    corr28: '0'
+    corr29: '0'
+    corr3: '0'
+    corr30: '0'
+    corr31: '0'
+    corr4: '0'
+    corr5: '0'
+    corr6: '0'
+    corr7: '0'
+    corr8: '0'
+    corr9: '0'
+    dc_offset_mode0: '0'
+    dc_offset_mode1: '0'
+    dc_offset_mode10: '0'
+    dc_offset_mode11: '0'
+    dc_offset_mode12: '0'
+    dc_offset_mode13: '0'
+    dc_offset_mode14: '0'
+    dc_offset_mode15: '0'
+    dc_offset_mode16: '0'
+    dc_offset_mode17: '0'
+    dc_offset_mode18: '0'
+    dc_offset_mode19: '0'
+    dc_offset_mode2: '0'
+    dc_offset_mode20: '0'
+    dc_offset_mode21: '0'
+    dc_offset_mode22: '0'
+    dc_offset_mode23: '0'
+    dc_offset_mode24: '0'
+    dc_offset_mode25: '0'
+    dc_offset_mode26: '0'
+    dc_offset_mode27: '0'
+    dc_offset_mode28: '0'
+    dc_offset_mode29: '0'
+    dc_offset_mode3: '0'
+    dc_offset_mode30: '0'
+    dc_offset_mode31: '0'
+    dc_offset_mode4: '0'
+    dc_offset_mode5: '0'
+    dc_offset_mode6: '0'
+    dc_offset_mode7: '0'
+    dc_offset_mode8: '0'
+    dc_offset_mode9: '0'
+    freq0: center_freq
+    freq1: 100e6
+    freq10: 100e6
+    freq11: 100e6
+    freq12: 100e6
+    freq13: 100e6
+    freq14: 100e6
+    freq15: 100e6
+    freq16: 100e6
+    freq17: 100e6
+    freq18: 100e6
+    freq19: 100e6
+    freq2: 100e6
+    freq20: 100e6
+    freq21: 100e6
+    freq22: 100e6
+    freq23: 100e6
+    freq24: 100e6
+    freq25: 100e6
+    freq26: 100e6
+    freq27: 100e6
+    freq28: 100e6
+    freq29: 100e6
+    freq3: 100e6
+    freq30: 100e6
+    freq31: 100e6
+    freq4: 100e6
+    freq5: 100e6
+    freq6: 100e6
+    freq7: 100e6
+    freq8: 100e6
+    freq9: 100e6
+    gain0: '10'
+    gain1: '10'
+    gain10: '10'
+    gain11: '10'
+    gain12: '10'
+    gain13: '10'
+    gain14: '10'
+    gain15: '10'
+    gain16: '10'
+    gain17: '10'
+    gain18: '10'
+    gain19: '10'
+    gain2: '10'
+    gain20: '10'
+    gain21: '10'
+    gain22: '10'
+    gain23: '10'
+    gain24: '10'
+    gain25: '10'
+    gain26: '10'
+    gain27: '10'
+    gain28: '10'
+    gain29: '10'
+    gain3: '10'
+    gain30: '10'
+    gain31: '10'
+    gain4: '10'
+    gain5: '10'
+    gain6: '10'
+    gain7: '10'
+    gain8: '10'
+    gain9: '10'
+    gain_mode0: 'True'
+    gain_mode1: 'False'
+    gain_mode10: 'False'
+    gain_mode11: 'False'
+    gain_mode12: 'False'
+    gain_mode13: 'False'
+    gain_mode14: 'False'
+    gain_mode15: 'False'
+    gain_mode16: 'False'
+    gain_mode17: 'False'
+    gain_mode18: 'False'
+    gain_mode19: 'False'
+    gain_mode2: 'False'
+    gain_mode20: 'False'
+    gain_mode21: 'False'
+    gain_mode22: 'False'
+    gain_mode23: 'False'
+    gain_mode24: 'False'
+    gain_mode25: 'False'
+    gain_mode26: 'False'
+    gain_mode27: 'False'
+    gain_mode28: 'False'
+    gain_mode29: 'False'
+    gain_mode3: 'False'
+    gain_mode30: 'False'
+    gain_mode31: 'False'
+    gain_mode4: 'False'
+    gain_mode5: 'False'
+    gain_mode6: 'False'
+    gain_mode7: 'False'
+    gain_mode8: 'False'
+    gain_mode9: 'False'
+    if_gain0: '20'
+    if_gain1: '20'
+    if_gain10: '20'
+    if_gain11: '20'
+    if_gain12: '20'
+    if_gain13: '20'
+    if_gain14: '20'
+    if_gain15: '20'
+    if_gain16: '20'
+    if_gain17: '20'
+    if_gain18: '20'
+    if_gain19: '20'
+    if_gain2: '20'
+    if_gain20: '20'
+    if_gain21: '20'
+    if_gain22: '20'
+    if_gain23: '20'
+    if_gain24: '20'
+    if_gain25: '20'
+    if_gain26: '20'
+    if_gain27: '20'
+    if_gain28: '20'
+    if_gain29: '20'
+    if_gain3: '20'
+    if_gain30: '20'
+    if_gain31: '20'
+    if_gain4: '20'
+    if_gain5: '20'
+    if_gain6: '20'
+    if_gain7: '20'
+    if_gain8: '20'
+    if_gain9: '20'
+    iq_balance_mode0: '0'
+    iq_balance_mode1: '0'
+    iq_balance_mode10: '0'
+    iq_balance_mode11: '0'
+    iq_balance_mode12: '0'
+    iq_balance_mode13: '0'
+    iq_balance_mode14: '0'
+    iq_balance_mode15: '0'
+    iq_balance_mode16: '0'
+    iq_balance_mode17: '0'
+    iq_balance_mode18: '0'
+    iq_balance_mode19: '0'
+    iq_balance_mode2: '0'
+    iq_balance_mode20: '0'
+    iq_balance_mode21: '0'
+    iq_balance_mode22: '0'
+    iq_balance_mode23: '0'
+    iq_balance_mode24: '0'
+    iq_balance_mode25: '0'
+    iq_balance_mode26: '0'
+    iq_balance_mode27: '0'
+    iq_balance_mode28: '0'
+    iq_balance_mode29: '0'
+    iq_balance_mode3: '0'
+    iq_balance_mode30: '0'
+    iq_balance_mode31: '0'
+    iq_balance_mode4: '0'
+    iq_balance_mode5: '0'
+    iq_balance_mode6: '0'
+    iq_balance_mode7: '0'
+    iq_balance_mode8: '0'
+    iq_balance_mode9: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nchan: '1'
+    num_mboards: '1'
+    sample_rate: samp_rate
+    sync: sync
+    time_source0: ''
+    time_source1: ''
+    time_source2: ''
+    time_source3: ''
+    time_source4: ''
+    time_source5: ''
+    time_source6: ''
+    time_source7: ''
+    type: fc32
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [104, 180.0]
+    rotation: 0
+    state: enabled
+- name: zeromq_pub_sink_0
+  id: zeromq_pub_sink
+  parameters:
+    address: tcp://127.0.0.1:5555
+    affinity: ''
+    alias: ''
+    bind: 'True'
+    comment: ''
+    drop_on_hwm: 'True'
+    hwm: '-1'
+    key: ''
+    pass_tags: 'False'
+    timeout: '100'
+    type: float
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1768, 172.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [analog_quadrature_demod_cf_0, '0', low_pass_filter_0_0, '0']
+- [blocks_file_source_0, '0', blocks_throttle2_0, '0']
+- [blocks_throttle2_0, '0', low_pass_filter_0, '0']
+- [digital_symbol_sync_xx_0, '0', epy_block_0, '0']
+- [digital_symbol_sync_xx_0, '0', zeromq_pub_sink_0, '0']
+- [epy_block_2, '0', blocks_throttle2_0, '0']
+- [freq_xlating_fir_filter_xxx_0, '0', low_pass_filter_0, '0']
+- [low_pass_filter_0, '0', analog_quadrature_demod_cf_0, '0']
+- [low_pass_filter_0, '0', qtgui_sink_x_0, '0']
+- [low_pass_filter_0_0, '0', rational_resampler_xxx_0, '0']
+- [rational_resampler_xxx_0, '0', digital_symbol_sync_xx_0, '0']
+- [rtlsdr_source_0, '0', freq_xlating_fir_filter_xxx_0, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0

@@ -3,6 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { uvsdSourceFiles, UVSD_DATA } from './uvsd-files.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docs = path.join(root, 'docs');
@@ -13,6 +14,7 @@ const copy = async (from, to) => {
 };
 
 await fs.copyFile(path.join(root, 'index.html'), path.join(docs, 'index.html'));
+await fs.copyFile(path.join(root, 'balloon.html'), path.join(docs, 'balloon.html'));
 await fs.copyFile(path.join(root, 'app-icon.svg'), path.join(docs, 'app-icon.svg'));
 await fs.copyFile(path.join(root, '.nojekyll'), path.join(docs, '.nojekyll'));
 for (const folder of ['ide', 'sim', 'engine', 'vendor']) await copy(folder, folder);
@@ -32,7 +34,16 @@ async function visit(relative) {
   }
 }
 for (const folder of editorRoots) await visit(folder);
+// The public UVic Satellite Design sources (git submodules under uvsd/) and the
+// data the balloon page reads. Private repositories are never published.
+const uvsd = uvsdSourceFiles(root);
+files.push(...uvsd);
 files.sort();
+await fs.rm(path.join(docs, 'uvsd'), { recursive: true, force: true });
+for (const rel of [...uvsd, ...UVSD_DATA]) {
+  await fs.mkdir(path.dirname(path.join(docs, rel)), { recursive: true });
+  await fs.copyFile(path.join(root, rel), path.join(docs, rel));
+}
 const listing = `${JSON.stringify({ files }, null, 2)}\n`;
 await fs.writeFile(path.join(root, 'ide/files.json'), listing);
 await fs.writeFile(path.join(root, 'ide/files.js'), `window.FORGE_FILES=${JSON.stringify({ files })};\n`);

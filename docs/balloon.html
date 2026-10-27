@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="./app-icon.svg">
+<title>DOOM Balloon</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="ide/balloon/balloon.css">
+</head>
+<body>
+<header class="bar">
+  <a class="logo" href="index.html" title="Back to the STM32 Forge IDE">
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1L18 5.5V14.5L10 19L2 14.5V5.5L10 1Z" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>
+    STM32 Forge
+  </a>
+  <span class="sep"></span>
+  <strong class="title">DOOM Balloon</strong>
+  <nav aria-label="Sections">
+    <a href="#link">Live link</a><a href="#system">System</a><a href="#setups">TX and RX</a><a href="#obc">OBC</a><a href="#repos">Repositories</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="btn" href="index.html">Open the IDE</a>
+</header>
+
+<main>
+  <section id="link" class="band">
+    <div class="section-head">
+      <h1>Play DOOM over the balloon link</h1>
+      <p>The payload runs the real DOOM engine. Each frame is encoded the way the flight code does it, sent through a simulated radio link, and decoded the way the ground software does it. Click the ground screen and your keys travel back up as Spacecraft Command Format packets.</p>
+    </div>
+    <div class="link-grid">
+      <article class="card">
+        <div class="card-head"><span class="kicker">Balloon · nRF5340 payload</span><span class="state" id="tx-state">idle</span></div>
+        <div class="screen"><canvas id="payload-screen" width="320" height="200" aria-label="Payload DOOM screen"></canvas><div class="overlay" id="payload-overlay"></div></div>
+        <div class="controls">
+          <label>Source
+            <select id="source">
+              <option value="live">Live DOOM (engine in WebAssembly)</option>
+              <option value="rec-grey">Recorded: doom_raw.bin (grey)</option>
+              <option value="rec-colour">Recorded: doom_raw_rgb.bin (colour)</option>
+            </select>
+          </label>
+          <button class="btn primary" id="btn-start" type="button">Start link</button>
+        </div>
+        <dl class="stats" id="tx-stats"></dl>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><span class="kicker">Downlink</span><span class="state" id="link-state">stopped</span></div>
+        <div class="controls stack">
+          <label>Path
+            <select id="path">
+              <option value="rf">RF test link: DOOMflow 4-FSK, 915 MHz</option>
+              <option value="uart">Payload packets: n_frame_uart.c over UART</option>
+            </select>
+          </label>
+          <label id="format-row">Frame format <select id="format"></select></label>
+          <label id="snr-row">SNR <input id="snr" type="range" min="0" max="30" step="1" value="20"><output id="snr-value">20 dB</output></label>
+          <label id="cfo-row">Carrier offset <input id="cfo" type="range" min="-60" max="60" step="1" value="0"><output id="cfo-value">0 kHz</output></label>
+        </div>
+        <figure class="plot" id="spectrum-plot"><canvas id="spectrum" width="560" height="130"></canvas><figcaption id="spectrum-caption">Spectrum at the receiver</figcaption></figure>
+        <figure class="plot" id="symbols-plot"><canvas id="symbols" width="560" height="110"></canvas><figcaption>Demodulated symbols with slicer thresholds</figcaption></figure>
+        <dl class="stats" id="link-stats"></dl>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><span class="kicker">Ground station · uvsd-doom-gs</span><span class="state" id="rx-state">waiting</span></div>
+        <div class="screen ground"><canvas id="ground-screen" width="320" height="200" tabindex="0" aria-label="Ground station display: click and use the keyboard to fly"></canvas><div class="overlay" id="ground-overlay">Click here, then play with WASD, arrows, F or Ctrl to fire, Space to use</div></div>
+        <div class="controls stack">
+          <label>Uplink
+            <select id="batch">
+              <option value="6">Send every 6 samples (200 ms)</option>
+              <option value="30">Send every 30 samples (1 s)</option>
+              <option value="rec">Recording: send 2 s after the last key (app.py)</option>
+            </select>
+          </label>
+        </div>
+        <dl class="stats" id="rx-stats"></dl>
+        <div class="log mono" id="uplink-log" aria-live="polite"></div>
+      </article>
+    </div>
+  </section>
+
+  <section id="system" class="band">
+    <div class="section-head">
+      <h2>System</h2>
+      <p>The boards in the hardware repositories and the links between them. Dashed links are planned: the designs don't wire them yet. Select a block for its parts and status.</p>
+    </div>
+    <div class="system-grid">
+      <div class="diagram" id="system-diagram"></div>
+      <aside class="card detail" id="block-detail"></aside>
+    </div>
+  </section>
+
+  <section id="setups" class="band">
+    <div class="section-head">
+      <h2>Transmit and receive setups</h2>
+      <p>The balloon's TT&amp;C radio switches one antenna between its transmit and receive chains. The ground receiver is read from <code>DOOMflow.grc</code> as committed. The bench paths carry payload frames before the radio exists.</p>
+    </div>
+    <div class="setup-grid">
+      <article class="card wide"><div class="card-head"><span class="kicker">Balloon TX / RX · TT&amp;C board</span><span class="state" id="tr-state">TX</span></div><div id="ttc-chain"></div></article>
+      <article class="card wide"><div class="card-head"><span class="kicker">Ground RX · GNU Radio</span><span class="mono dim" id="grc-meta"></span></div><div id="grc-chain"></div></article>
+      <article class="card wide"><div class="card-head"><span class="kicker">Bench TX · payload to laptop</span></div><div id="bench-chain"></div></article>
+    </div>
+  </section>
+
+  <section id="obc" class="band">
+    <div class="section-head">
+      <h2>On-board computer</h2>
+      <p>Read from the <code>uvsd-doom-obc</code> sources: the FreeRTOS tasks in <code>main.c</code>, the sensor channels in <code>telemetry_sensors.h</code> and the pins in the CubeMX project.</p>
+    </div>
+    <div class="obc-grid">
+      <article class="card"><div class="card-head"><span class="kicker">FreeRTOS tasks</span><span class="mono dim" id="rtos-meta"></span></div><table class="table" id="obc-tasks"></table></article>
+      <article class="card"><div class="card-head"><span class="kicker">Telemetry channels</span><a class="mono" id="sensors-link" href="#">open source</a></div><table class="table" id="obc-telemetry"></table></article>
+      <article class="card"><div class="card-head"><span class="kicker">Flight and burnwire</span><span class="state" id="burn-state">armed</span></div><div id="flight"></div></article>
+      <article class="card"><div class="card-head"><span class="kicker">Pins</span><span class="mono dim" id="mcu-name"></span></div><table class="table" id="obc-pins"></table></article>
+    </div>
+  </section>
+
+  <section id="repos" class="band">
+    <div class="section-head">
+      <h2>Repositories</h2>
+      <p>Each UVic Satellite Design repository is a submodule under <code>uvsd/</code>, pinned to the commit below. <code>node tools/uvsd.mjs setup</code> fetches SDKs and dependencies; <code>node tools/uvsd.mjs test</code> builds and tests every repository with its own CI commands.</p>
+    </div>
+    <table class="table repos" id="repo-table"></table>
+  </section>
+</main>
+
+<script src="sim/doom.js"></script>
+<script src="ide/uvsd-sources.js"></script>
+<script src="ide/balloon.js"></script>
+</body>
+</html>

@@ -56,12 +56,13 @@ function loadWad() {
 }
 
 export class DoomSim {
-  constructor(canvas, { onStatus = () => {}, onExit = () => {} } = {}) {
+  constructor(canvas, { onStatus = () => {}, onExit = () => {}, onFrame = () => {} } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.image = this.ctx.createImageData(320, 200);
     this.onStatus = onStatus;
     this.onExit = onExit;
+    this.onFrame = onFrame;           // (module, RGBA ImageData) after each drawn frame
     this.mod = null;
     this.running = false;
     this.frames = 0;
@@ -85,6 +86,7 @@ export class DoomSim {
         this.image.data.set(mod.HEAPU8.subarray(ptr, ptr + 320 * 200 * 4));
         this.ctx.putImageData(this.image, 0, 0);
         this.frames++;
+        this.onFrame(mod, this.image);
       },
     });
     mod.FS.writeFile('/DOOM1.WAD', new Uint8Array(wad));

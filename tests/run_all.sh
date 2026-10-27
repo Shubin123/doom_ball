@@ -2,6 +2,8 @@
 # Regression suite. Needs arm-none-eabi-gcc (PATH or ARM_GCC_PATH), node,
 # emcc (only to rebuild the sim), and for the firmware emulator test the
 # Python packages in tests/emu/requirements.txt (PYTHON=/path/to/python).
+# The uvsd/ step builds and tests the UVic Satellite Design repositories
+# after git submodule update --init && node tools/uvsd.mjs setup.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
@@ -46,9 +48,12 @@ check $? "sim: 3000 tics with the H743 zone banks"
 
 step "IDE opened from disk (file://)"
 cp ide/forge.js /tmp/forge_bundle_before.js
+cp ide/balloon.js /tmp/forge_balloon_before.js
+cp ide/uvsd-sources.js /tmp/forge_uvsd_before.js
 node tools/bundle_ide.mjs >/dev/null
-cmp -s ide/forge.js /tmp/forge_bundle_before.js
-check $? "ide/forge.js is up to date with the ide/ modules"
+cmp -s ide/forge.js /tmp/forge_bundle_before.js && cmp -s ide/balloon.js /tmp/forge_balloon_before.js \
+  && cmp -s ide/uvsd-sources.js /tmp/forge_uvsd_before.js
+check $? "ide/forge.js, ide/balloon.js and ide/uvsd-sources.js are up to date"
 # First browser that actually starts (a stale wrapper can outlive its app).
 if [ -z "${CHROME:-}" ]; then
   for c in google-chrome-stable google-chrome chromium "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
@@ -73,6 +78,14 @@ if $PYTHON -c "import unicorn, elftools, PIL" 2>/dev/null; then
   check $r "firmware.elf boots, loads DOOM1.WAD from SD and plays E1M1"
 else
   echo "SKIP: install tests/emu/requirements.txt (or set PYTHON) to run"
+fi
+
+step "UVic Satellite Design repositories (uvsd/ submodules)"
+if [ -e uvsd/uvsd-doom-obc/.git ]; then
+  node tools/uvsd.mjs test
+  check $? "every checked-out repository builds and passes its own tests (node tools/uvsd.mjs test)"
+else
+  echo "SKIP: git submodule update --init && node tools/uvsd.mjs setup"
 fi
 
 step "result"

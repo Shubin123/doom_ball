@@ -1,0 +1,340 @@
+{
+  "org": "UVicSatelliteDesign",
+  "repos": [
+    {
+      "id": "uvsd-doom-obc",
+      "name": "Balloon OBC firmware",
+      "role": "STM32H733 on-board computer: FreeRTOS tasks, telemetry sensors, command handling, SD card",
+      "lang": "C",
+      "setup": [
+        {
+          "label": "fetch STM32CubeH7 v1.12.1 HAL, CMSIS, FreeRTOS, FatFs",
+          "run": [
+            "bash",
+            "ci/firmware/fetch_cube_deps.sh"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "unit tests (make -C tests all)",
+          "needs": [
+            "cc"
+          ],
+          "run": [
+            "make",
+            "-C",
+            "tests",
+            "all"
+          ]
+        },
+        {
+          "label": "cppcheck (CI flags)",
+          "needs": [
+            "cppcheck"
+          ],
+          "run": [
+            "cppcheck",
+            "--enable=warning,style,performance,portability",
+            "--error-exitcode=1",
+            "--inline-suppr",
+            "--std=c11",
+            "--suppress=missingIncludeSystem",
+            "--suppress=missingInclude",
+            "--suppress=toomanyconfigs",
+            "--suppress=constParameterPointer:Core/Src/main.c",
+            "-I",
+            "Core/Inc",
+            "Core/Src/",
+            "Core/Inc/"
+          ]
+        },
+        {
+          "label": "STM32H733 firmware build (arm-none-eabi-gcc)",
+          "needs": [
+            "arm"
+          ],
+          "run": [
+            "make",
+            "-C",
+            "ci/firmware"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-gs",
+      "name": "Ground station",
+      "role": "PyQt6 ground station: DOOM video display, palettes, keyboard uplink packets",
+      "lang": "Python",
+      "setup": [
+        {
+          "label": "uv sync --frozen",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "sync",
+            "--frozen"
+          ]
+        }
+      ],
+      "test": [
+        {
+          "label": "ruff check",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--frozen",
+            "ruff",
+            "check",
+            "."
+          ]
+        },
+        {
+          "label": "mypy",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--frozen",
+            "mypy"
+          ]
+        },
+        {
+          "label": "pytest",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--frozen",
+            "pytest",
+            "-q"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-pico-bridge",
+      "name": "Pico bridge",
+      "role": "Raspberry Pi Pico 2 SPI-slave bridge and laptop USB receiver for payload frames",
+      "lang": "C, Python",
+      "sdk": "pico",
+      "setup": [
+        {
+          "label": "receiver: uv sync --frozen",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "sync",
+            "--frozen"
+          ],
+          "cwd": "usb_laptop"
+        }
+      ],
+      "test": [
+        {
+          "label": "receiver: pytest (Pico byte stream over a pty)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--frozen",
+            "pytest",
+            "-q"
+          ],
+          "cwd": "usb_laptop"
+        },
+        {
+          "label": "RP2350 firmware build (spi_connection.uf2)",
+          "needs": [
+            "arm",
+            "cmake",
+            "pico"
+          ],
+          "run": [
+            "bash",
+            "build.sh"
+          ],
+          "cwd": "spi_connection"
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-gnu-radio",
+      "name": "GNU Radio link",
+      "role": "GNU Radio Companion flowgraph and scripts for the 915 MHz DOOM video link, with recorded gameplay",
+      "lang": "Python",
+      "lfs": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "Python scripts compile",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--quiet",
+            "python",
+            "-m",
+            "compileall",
+            "-q",
+            "-x",
+            "/\\.",
+            "."
+          ]
+        },
+        {
+          "label": "viewers decode the recordings at link rate (tests/replay_recordings.py)",
+          "needs": [
+            "uv"
+          ],
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "--quiet",
+            "--with",
+            "numpy",
+            "python",
+            "tests/replay_recordings.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-nrf-doom",
+      "name": "nRF5340 DOOM payload",
+      "role": "DOOM ported to the nRF5340 (application and network cores) with micro:bit controller",
+      "lang": "C",
+      "sdk": "nrf5",
+      "setup": [],
+      "test": [
+        {
+          "label": "network core build (nrfdoom_net)",
+          "needs": [
+            "arm",
+            "nrf"
+          ],
+          "run": [
+            "make",
+            "--no-print-directory",
+            "-j{JOBS}",
+            "SDK_ROOT={NRF_SDK}",
+            "GNU_INSTALL_ROOT={ARM}/"
+          ],
+          "cwd": "nrfdoom_net"
+        },
+        {
+          "label": "application core build (nrfdoom, DOOM)",
+          "needs": [
+            "arm",
+            "nrf"
+          ],
+          "run": [
+            "make",
+            "--no-print-directory",
+            "-j{JOBS}",
+            "SDK_ROOT={NRF_SDK}",
+            "GNU_INSTALL_ROOT={ARM}/"
+          ],
+          "cwd": "nrfdoom/nrf5340dk/armgcc"
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-obc-pcb-v2",
+      "name": "OBC PCB v2",
+      "role": "Altium design of the STM32H733 OBC board (J4, U2, J5, J6 removed)",
+      "lang": "Altium",
+      "setup": [],
+      "test": [
+        {
+          "label": "Altium schematic and PCB documents are intact",
+          "run": [
+            "altium"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-obc-pcb",
+      "name": "OBC PCB",
+      "role": "Altium design of the OBC board and its PC/104 layout",
+      "lang": "Altium",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "Altium schematic and PCB documents are intact",
+          "run": [
+            "altium"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-eps-pcb",
+      "name": "EPS PCB",
+      "role": "Altium design of the electrical power system: 1S2P Li-ion, eFuses, 3V3/5V/7V7 rails, sensing",
+      "lang": "Altium",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "Altium schematic and PCB documents are intact",
+          "run": [
+            "altium"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-ttc-pcb",
+      "name": "TTC PCB",
+      "role": "Altium design of the CC1201 telemetry, tracking and command radio with PA, LNA and GPS",
+      "lang": "Altium",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "Altium schematic and PCB documents are intact",
+          "run": [
+            "altium"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uvsd-doom-nrf-pcb",
+      "name": "nRF PCB",
+      "role": "Altium copy of the nRF5340 DK reference design used for the DOOM payload",
+      "lang": "Altium",
+      "private": true,
+      "setup": [],
+      "test": [
+        {
+          "label": "Altium schematic and PCB documents are intact",
+          "run": [
+            "altium"
+          ]
+        }
+      ]
+    }
+  ]
+}
